@@ -52,7 +52,7 @@ maintain by hand and we benefit from a sub-20KB CSS payload.
 /migrations           # D1 migrations
   0001_init.sql
   ...
-/constitution         # mission, techstack, roadmap
+/specs                # mission, tech-stack, roadmap
 .github/workflows/
   deploy.yml
 ```

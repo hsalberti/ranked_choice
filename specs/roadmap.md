@@ -21,7 +21,7 @@ country awareness, no abuse protection.
 
 Goal: get a real backend in place without changing visible behavior.
 
-- Restructure repo into `/web`, `/api`, `/migrations`, `/constitution`.
+- Restructure repo into `/web`, `/api`, `/migrations`, `/specs`.
 - Create Cloudflare Pages project pointed at `/web` on `main`.
 - Create Workers project under `/api` with `wrangler.toml`.
 - Provision D1 database, register binding in `wrangler.toml`.
@@ -95,7 +95,7 @@ Goal: make casual scripted abuse unprofitable.
 - Admin endpoint behind Cloudflare Access for a moderation dashboard
   (vote totals, suspect IPs by hash, top countries).
 - Document the threat model and known limitations in
-  `/constitution/security.md`.
+  `/specs/security.md`.
 
 **Exit criteria:** a scripted attack hitting `/api/vote` is throttled
 within 50 requests and fails Turnstile on hit 51; admin dashboard
