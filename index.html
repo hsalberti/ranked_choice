@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#0b0b0d" media="(prefers-color-scheme: dark)" />
+  <meta name="description" content="Build your 2028 presidential ballot one matchup at a time, then share your ranked picks." />
+  <meta property="og:title" content="The 2028 Ballot" />
+  <meta property="og:description" content="Tap your way to a personal top-5 for 2028, then share it like a Wordle score." />
+  <title>The 2028 Ballot · Rank your picks</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b0b0d'/%3E%3Ctext x='50%25' y='56%25' font-family='-apple-system,Helvetica' font-size='34' font-weight='700' text-anchor='middle' fill='white'%3E%E2%9C%93%3C/text%3E%3C/svg%3E" />
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">✓</div>
+        <div class="brand-name">The 2028 Ballot <span>· rank your picks</span></div>
+      </div>
+      <div class="progress-pill" id="progress" hidden>
+        <span id="progress-text">0 / 0</span>
+        <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+      </div>
+    </header>
+
+    <!-- Start -->
+    <section class="screen active" id="screen-start">
+      <div class="hero">
+        <h1>Who should run in 2028?</h1>
+        <p>Tap through 25 head-to-head matchups. We'll build your ranked-choice top 5 and you can share it like a Wordle score.</p>
+        <div class="preview" id="start-preview"></div>
+        <button class="cta" id="start-btn">Start voting →</button>
+        <div class="start-meta">
+          <span>· 25 candidates</span>
+          <span>· ~2 minutes</span>
+          <span>· no signup</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Voting -->
+    <section class="screen" id="screen-vote">
+      <div class="matchup-header">
+        <div class="label">Who would you rather see run?</div>
+      </div>
+      <div class="matchup" id="matchup">
+        <button class="card" id="card-a" aria-label="Pick left candidate"></button>
+        <div class="vs">VS</div>
+        <button class="card" id="card-b" aria-label="Pick right candidate"></button>
+      </div>
+      <div class="skip-row">
+        <button class="skip-btn" id="skip-btn">Skip this matchup ↓</button>
+      </div>
+    </section>
+
+    <!-- Results -->
+    <section class="screen" id="screen-results">
+      <div class="results-hero">
+        <div class="label">Your 2028 Ballot</div>
+        <h2 id="results-title">Your top 5</h2>
+        <p id="results-sub">Here's how you ranked the field.</p>
+      </div>
+
+      <div class="podium" id="podium"></div>
+
+      <div class="share-section">
+        <div class="share-preview" id="share-preview"></div>
+        <div class="share-actions">
+          <button class="cta" id="share-btn">Copy & share</button>
+          <button class="cta secondary" id="share-native-btn" hidden>Share…</button>
+        </div>
+      </div>
+
+      <div class="toggle-full">
+        <button id="toggle-full-btn">Show full ranking ↓</button>
+      </div>
+      <div class="full-ranking" id="full-ranking"></div>
+
+      <div class="results-actions">
+        <button class="cta secondary" id="restart-btn">Start over</button>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <span>A toy ballot · no votes are submitted anywhere · </span>
+      <a href="#" id="about-link">about</a>
+    </footer>
+  </main>
+
+  <!-- After-vote stat overlay -->
+  <div class="stat-overlay" id="stat-overlay" aria-live="polite">
+    <div class="stat-card">
+      <p class="stat-headline" id="stat-headline">Most voters agree with you.</p>
+      <div class="stat-faces">
+        <div class="stat-face left">
+          <div class="avatar xs" id="stat-avatar-a"></div>
+          <span id="stat-name-a"></span>
+        </div>
+        <div class="stat-face right">
+          <div class="avatar xs" id="stat-avatar-b"></div>
+          <span id="stat-name-b"></span>
+        </div>
+      </div>
+      <div class="stat-bar">
+        <div class="seg" id="stat-seg-a"></div>
+        <div class="seg" id="stat-seg-b"></div>
+      </div>
+      <div class="stat-row">
+        <span><span id="stat-pct-a">0%</span> chose them</span>
+        <span><span id="stat-pct-b">0%</span> chose them</span>
+      </div>
+      <div class="stat-foot">based on simulated prior votes</div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">Copied to clipboard</div>
+
+  <script src="candidates.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

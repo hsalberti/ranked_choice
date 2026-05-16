@@ -1,0 +1,30 @@
+// 25 potential 2028 presidential candidates.
+// Roles reflect their most relevant/recent public position as of 2026.
+// Edit freely to update names, roles, or party labels.
+window.CANDIDATES = [
+  { id: 'ramaswamy',   name: 'Vivek Ramaswamy',         party: 'R', role: 'Governor of Ohio',                            bio: 'Biotech entrepreneur and author who ran in the 2024 Republican primary before winning the Ohio governorship.' },
+  { id: 'booker',      name: 'Cory Booker',             party: 'D', role: 'U.S. Senator from New Jersey',                bio: 'Former mayor of Newark serving his third Senate term, known for criminal-justice reform work.' },
+  { id: 'desantis',    name: 'Ron DeSantis',            party: 'R', role: 'Former Governor of Florida',                  bio: 'Two-term Florida governor and 2024 GOP primary contender who reshaped state policy on schools and immigration.' },
+  { id: 'buttigieg',   name: 'Pete Buttigieg',          party: 'D', role: 'Former U.S. Secretary of Transportation',     bio: 'Former mayor of South Bend and 2020 primary contender who led DOT through the infrastructure law era.' },
+  { id: 'scott',       name: 'Tim Scott',               party: 'R', role: 'U.S. Senator from South Carolina',            bio: 'Senate Banking chair and 2024 primary contender focused on tax policy and opportunity zones.' },
+  { id: 'ossoff',      name: 'Jon Ossoff',              party: 'D', role: 'U.S. Senator from Georgia',                   bio: 'Documentary producer turned senator who chairs the Permanent Subcommittee on Investigations.' },
+  { id: 'rfk',         name: 'Robert F. Kennedy Jr.',   party: 'I', role: 'Former U.S. Secretary of Health & Human Services', bio: 'Environmental lawyer and 2024 independent candidate who served as HHS Secretary in 2025.' },
+  { id: 'cuban',       name: 'Mark Cuban',              party: 'I', role: 'Entrepreneur and investor',                   bio: 'Founder of Cost Plus Drugs and longtime Shark Tank investor; sold the Dallas Mavericks in 2023.' },
+  { id: 'carlson',     name: 'Tucker Carlson',          party: 'R', role: 'Independent media commentator',               bio: 'Host of The Tucker Carlson Network after his exit from cable news; influential voice on the populist right.' },
+  { id: 'stefanik',    name: 'Elise Stefanik',          party: 'R', role: 'Governor of New York',                        bio: 'Former House Republican Conference chair elected to lead New York in 2026.' },
+  { id: 'mace',        name: 'Nancy Mace',              party: 'R', role: 'U.S. Representative from South Carolina',     bio: 'Three-term congresswoman and former Citadel graduate known for a maverick streak on tech, oversight, and reproductive rights.' },
+  { id: 'aoc',         name: 'Alexandria Ocasio-Cortez',party: 'D', role: 'U.S. Representative from New York',           bio: 'Progressive caucus leader and Oversight Committee member who built a national platform around climate and housing.' },
+  { id: 'vance',       name: 'J.D. Vance',              party: 'R', role: 'Vice President of the United States',         bio: 'Former Ohio senator and Hillbilly Elegy author serving as Vice President in the Trump administration.' },
+  { id: 'newsom',      name: 'Gavin Newsom',            party: 'D', role: 'Former Governor of California',               bio: 'Two-term California governor and former San Francisco mayor with a national profile on climate and reproductive rights.' },
+  { id: 'gaetz',       name: 'Matt Gaetz',              party: 'R', role: 'Conservative commentator',                    bio: 'Former Florida congressman and brief 2024 attorney general nominee now hosting a nightly OAN program.' },
+  { id: 'talarico',    name: 'James Talarico',          party: 'D', role: 'Texas State Representative',                  bio: 'Former teacher and seminary student whose viral statehouse speeches on faith, public schools, and gun policy built a national following.' },
+  { id: 'rubio',       name: 'Marco Rubio',             party: 'R', role: 'U.S. Secretary of State',                     bio: 'Former Florida senator and 2016 presidential candidate serving as the nation’s top diplomat.' },
+  { id: 'harris',      name: 'Kamala Harris',           party: 'D', role: 'Former Vice President',                       bio: 'Former vice president, U.S. senator, and California attorney general; the 2024 Democratic nominee.' },
+  { id: 'hegseth',     name: 'Pete Hegseth',            party: 'R', role: 'U.S. Secretary of Defense',                   bio: 'Army veteran and former Fox host running the Pentagon’s force-structure and recruiting overhaul.' },
+  { id: 'moore',       name: 'Wes Moore',               party: 'D', role: 'Governor of Maryland',                        bio: 'Army veteran, bestselling author, and former Robin Hood Foundation CEO serving his first term in Annapolis.' },
+  { id: 'cruz',        name: 'Ted Cruz',                party: 'R', role: 'U.S. Senator from Texas',                     bio: 'Three-term Texas senator, 2016 primary runner-up, and Commerce Committee ranking member.' },
+  { id: 'shapiro',     name: 'Josh Shapiro',            party: 'D', role: 'Governor of Pennsylvania',                    bio: 'Former Pennsylvania attorney general known for bipartisan budget deals and a 2024 VP shortlist appearance.' },
+  { id: 'greene',      name: 'Marjorie Taylor Greene',  party: 'R', role: 'U.S. Representative from Georgia',            bio: 'Outspoken House Freedom Caucus member from northwest Georgia’s 14th district.' },
+  { id: 'klobuchar',   name: 'Amy Klobuchar',           party: 'D', role: 'U.S. Senator from Minnesota',                 bio: 'Senior Minnesota senator, former 2020 primary contender, and Rules Committee ranking member.' },
+  { id: 'bannon',      name: 'Steve Bannon',            party: 'R', role: 'Host of War Room',                            bio: 'Former White House chief strategist and architect of the populist-right media ecosystem.' },
+];
