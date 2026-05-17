@@ -150,6 +150,23 @@ GitHub Pages stays live throughout this. Once
 
 ## Troubleshooting
 
+- **Hostinger says "Value must be valid IPv4 address":** the **Type**
+  is set to `A`. `A` records only accept IPv4 (e.g. `203.0.113.10`),
+  not hostnames. Switch **Type** to **CNAME** — then the hostname
+  target is accepted.
+- **You typed a `*.workers.dev` target and the domain doesn't serve
+  the site (even after switching to CNAME):** Cloudflare **Workers**
+  do not respond to external custom hostnames just because DNS points
+  at them. The Worker has to be told about the hostname, and that
+  requires the zone to be on Cloudflare (Workers Custom Domain or
+  Workers Route). From an external registrar like Hostinger, the
+  supported path is **Cloudflare Pages**, whose `*.pages.dev` targets
+  *do* accept external CNAMEs. If the frontend is currently on a
+  Worker, deploy it to a Pages project (Step 1) and CNAME to the
+  `*.pages.dev` target instead. Alternative: move the `almaintel.com`
+  nameservers to Cloudflare (see "Optional: consolidate later") and
+  attach a Workers Custom Domain — bigger blast radius, only worth
+  it if you want everything on one origin.
 - **DNS not resolving after 30 min:** double-check that the Hostinger
   CNAME is on the `almaintel.com` zone (not `www.almaintel.com` or
   another subdomain). Re-check the **Name** field — it should be just

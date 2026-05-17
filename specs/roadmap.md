@@ -57,6 +57,16 @@ URL moves to the Cloudflare-hosted custom domain at the end.
 **Exit criteria:** custom domain serves the existing frontend, and
 `/api/health` returns the visitor's country from any device.
 
+**Follow-up (open):** the frontend was first deployed via `wrangler
+deploy`, so it currently lives on a Worker
+(`ranked-choice.alberti-rick.workers.dev`). An external Hostinger
+CNAME cannot bind a custom domain to a `*.workers.dev` URL — Workers
+custom hostnames require the zone to be on Cloudflare. Action: create
+a separate Cloudflare **Pages** project for the static frontend, get
+the `*.pages.dev` target, then CNAME `2028ballot.almaintel.com` to it
+at Hostinger (see `website_instructions.md` Steps 1–3 and the
+matching Troubleshooting entry). Keep the Worker for `/api/*` only.
+
 ## Phase 1.5 — Candidate detail cards & engagement tracking
 
 Goal: each candidate card has a front (punchy hook) + a back (factual
