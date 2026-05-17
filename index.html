@@ -9,6 +9,15 @@
   <meta property="og:title" content="The 2028 Ballot" />
   <meta property="og:description" content="Tap your way to a personal top-5 for 2028, then share it like a Wordle score." />
   <title>The 2028 Ballot · Rank your picks</title>
+
+  <!-- Phase 5 anti-abuse. To enable Cloudflare Turnstile, set this meta
+       tag's content to your *site key* (the public one, not the server
+       secret) and uncomment the script tag below. Until then, the server
+       Worker also runs in pass-through mode unless TURNSTILE_SECRET is
+       set as a Worker secret. -->
+  <!-- <meta name="turnstile-sitekey" content="0x4AAAAAAA..." /> -->
+  <!-- <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad" async defer></script> -->
+
   <link rel="stylesheet" href="styles.css" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b0b0d'/%3E%3Ctext x='50%25' y='56%25' font-family='-apple-system,Helvetica' font-size='34' font-weight='700' text-anchor='middle' fill='white'%3E%E2%9C%93%3C/text%3E%3C/svg%3E" />
 </head>

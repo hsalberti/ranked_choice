@@ -41,6 +41,56 @@
     });
   }
 
+  // ---- Phase 5: Turnstile token capture ------------------------------
+  // Optional. The frontend reads a <meta name="turnstile-sitekey"> tag.
+  // If present AND Cloudflare's Turnstile script has loaded, every
+  // mutating request gets a fresh token in the `t` field. If not set,
+  // the server gate runs in pass-through (TURNSTILE_SECRET unset).
+  const turnstileSiteKey = (() => {
+    const tag = document.querySelector('meta[name="turnstile-sitekey"]');
+    return tag ? tag.getAttribute('content') : null;
+  })();
+  let turnstileWidgetId = null;
+  window.onTurnstileLoad = function () {
+    if (!turnstileSiteKey || !window.turnstile) return;
+    let host = document.getElementById('turnstile-host');
+    if (!host) {
+      host = document.createElement('div');
+      host.id = 'turnstile-host';
+      host.style.cssText = 'position:fixed;bottom:8px;right:8px;z-index:9999;';
+      document.body.appendChild(host);
+    }
+    turnstileWidgetId = window.turnstile.render(host, {
+      sitekey: turnstileSiteKey,
+      size: 'invisible',
+      'refresh-expired': 'auto',
+    });
+  };
+  function getTurnstileToken() {
+    if (!turnstileSiteKey || !window.turnstile || turnstileWidgetId === null) {
+      return Promise.resolve(null);
+    }
+    return new Promise(resolve => {
+      window.turnstile.execute(turnstileWidgetId, {
+        callback: token => resolve(token || null),
+        'error-callback': () => resolve(null),
+      });
+    });
+  }
+  // Adds a `t` field to an existing JSON body string. Idempotent.
+  function withTurnstile(body) {
+    return getTurnstileToken().then(token => {
+      if (!token) return body;
+      try {
+        const parsed = JSON.parse(body);
+        parsed.t = token;
+        return JSON.stringify(parsed);
+      } catch {
+        return body;
+      }
+    });
+  }
+
   const C = window.CANDIDATES;
   const EC = window.EXTENDED_CANDIDATES || [];
   const byId = Object.fromEntries(C.map(c => [c.id, c]));
@@ -123,17 +173,18 @@
     const q = loadEvents();
     if (!q.length) return;
     const batch = q.slice(0, 100);
-    apiFetch('/api/event', {
+    const body = JSON.stringify({ events: batch.map(e => ({
+      candidate_id: e.candidate_id,
+      event_type: e.event_type,
+      context: e.context,
+    })) });
+    withTurnstile(body).then(b => apiFetch('/api/event', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ events: batch.map(e => ({
-        candidate_id: e.candidate_id,
-        event_type: e.event_type,
-        context: e.context,
-      })) }),
+      body: b,
       keepalive: true,
-    }).then(r => {
-      if (!r.ok) return;
+    })).then(r => {
+      if (!r || !r.ok) return;
       const remaining = loadEvents().slice(batch.length);
       try { localStorage.setItem(STORAGE_EVENTS, JSON.stringify(remaining)); } catch {}
     }).catch(() => {});
@@ -142,12 +193,13 @@
   /* ---------- remote vote (best-effort, fire-and-forget) ---------- */
   function postRemoteVote(aId, bId, pickedId) {
     if (!API_REACHABLE) return;
-    apiFetch('/api/vote', {
+    const body = JSON.stringify({ a: aId, b: bId, picked: pickedId });
+    withTurnstile(body).then(b => apiFetch('/api/vote', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ a: aId, b: bId, picked: pickedId }),
+      body: b,
       keepalive: true,
-    }).catch(() => {});
+    })).catch(() => {});
   }
 
   /* ---------- remote pair stats (replaces seeded estimate when reachable) ---------- */
@@ -663,11 +715,11 @@
     if (extList && extList.length) {
       body.extended = extList.map(r => r.c.id);
     }
-    return apiFetch('/api/ballot', {
+    return withTurnstile(JSON.stringify(body)).then(b => apiFetch('/api/ballot', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(body),
-    }).then(r => r.ok ? r.json() : null).catch(() => null);
+      body: b,
+    })).then(r => r && r.ok ? r.json() : null).catch(() => null);
   }
 
   function renderCountryLeaderboard() {
