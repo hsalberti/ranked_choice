@@ -13,6 +13,9 @@
   const TOTAL_MATCHUPS = 25;
   const K = 36; // Elo K-factor
   const STORAGE_LOCAL_VOTES = 'ballot28.localvotes.v1';
+  const STORAGE_EVENTS = 'ballot28.events.v1';
+  // Flip to a real URL when /api/event ships (specs/roadmap.md Phase 1.5).
+  const EVENT_FLUSH_URL = null;
 
   const C = window.CANDIDATES;
   const byId = Object.fromEntries(C.map(c => [c.id, c]));
@@ -43,6 +46,40 @@
   }
   function pairKey(a, b) { return [a, b].sort().join('|'); }
   function partyEmoji(p) { return p === 'R' ? '🔴' : p === 'D' ? '🔵' : '⚪️'; }
+
+  /* ---------- engagement tracking ----------
+   * Queue tracked clicks (flip_open/close, link_twitter/wikipedia) to
+   * localStorage so they survive a reload. Flushed to /api/event when
+   * EVENT_FLUSH_URL is set; until then this is a no-op outbound.
+   */
+  function loadEvents() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_EVENTS) || '[]'); }
+    catch { return []; }
+  }
+  function track(event_type, candidate_id, context) {
+    if (!candidate_id) return;
+    const q = loadEvents();
+    q.push({ event_type, candidate_id, context, t: Date.now() });
+    if (q.length > 500) q.splice(0, q.length - 500);
+    try { localStorage.setItem(STORAGE_EVENTS, JSON.stringify(q)); } catch {}
+    flushEvents();
+  }
+  function flushEvents() {
+    if (!EVENT_FLUSH_URL) return;
+    const q = loadEvents();
+    if (!q.length) return;
+    const batch = q.slice(0, 100);
+    fetch(EVENT_FLUSH_URL, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ events: batch }),
+      keepalive: true,
+    }).then(r => {
+      if (!r.ok) return;
+      const remaining = loadEvents().slice(batch.length);
+      try { localStorage.setItem(STORAGE_EVENTS, JSON.stringify(remaining)); } catch {}
+    }).catch(() => {});
+  }
 
   function loadLocalVotes() {
     try { return JSON.parse(localStorage.getItem(STORAGE_LOCAL_VOTES) || '{}'); }
@@ -141,17 +178,78 @@
     $('#start-preview').innerHTML = pool.map(c => avatarHtml(c, 'sm')).join('');
   }
 
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function backHtml(c) {
+    const policy = (c.policy || []).map(p => `<li>${escapeHtml(p)}</li>`).join('');
+    const tw = c.links && c.links.twitter ? c.links.twitter : null;
+    const wk = c.links && c.links.wikipedia ? c.links.wikipedia : null;
+    const twIcon = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M18.244 2H21.5l-7.5 8.572L23 22h-6.84l-5.36-7.01L4.5 22H1.244l8.04-9.19L1 2h7.014l4.85 6.41L18.244 2Zm-1.2 18h1.86L7.04 4H5.1l11.944 16Z"/></svg>`;
+    const wkIcon = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3 4h4.2l3.1 9.8L13.2 4h2l2.8 9.8L21 4h2L19 20h-2l-2.5-9.7L11.5 20h-2L4.5 4H3Z"/></svg>`;
+
+    return `
+      <div class="back-header">
+        <div class="back-name">${escapeHtml(c.name)}</div>
+      </div>
+      ${c.bio_long ? `
+      <div class="back-section">
+        <div class="back-section-label">Bio</div>
+        <p>${escapeHtml(c.bio_long)}</p>
+      </div>` : ''}
+      ${c.storyline ? `
+      <div class="back-section">
+        <div class="back-section-label">The 2028 storyline</div>
+        <p>${escapeHtml(c.storyline)}</p>
+      </div>` : ''}
+      ${policy ? `
+      <div class="back-section">
+        <div class="back-section-label">Key positions</div>
+        <ul class="back-policy">${policy}</ul>
+      </div>` : ''}
+      ${c.moment ? `
+      <div class="back-section back-moment">
+        <p>${escapeHtml(c.moment)}</p>
+      </div>` : ''}
+      <div class="back-links">
+        ${tw
+          ? `<a class="link-btn" href="${escapeHtml(tw)}" target="_blank" rel="noopener noreferrer" data-link="twitter" data-cid="${c.id}">${twIcon} Twitter / X</a>`
+          : `<span class="link-btn" aria-disabled="true">${twIcon} No Twitter</span>`}
+        ${wk
+          ? `<a class="link-btn" href="${escapeHtml(wk)}" target="_blank" rel="noopener noreferrer" data-link="wikipedia" data-cid="${c.id}">${wkIcon} Wikipedia</a>`
+          : ''}
+      </div>
+    `;
+  }
+
   function renderCard(slot, c) {
     const el = $('#card-' + slot);
     el.innerHTML = `
-      ${avatarHtml(c)}
-      <div class="card-name">${c.name}</div>
-      <div class="card-role">${c.role}</div>
-      <span class="party-chip party-${c.party}"><span class="dot"></span>${partyLabel(c.party)}</span>
-      <div class="card-bio">${c.bio}</div>
+      <div class="card-inner">
+        <div class="card-face front">
+          <button class="info-btn" type="button" data-action="flip" aria-label="More about ${escapeHtml(c.name)}">ⓘ</button>
+          ${avatarHtml(c)}
+          <div class="card-name">${escapeHtml(c.name)}</div>
+          <div class="card-role">${escapeHtml(c.role)}</div>
+          <span class="party-chip party-${c.party}"><span class="dot"></span>${partyLabel(c.party)}</span>
+          <div class="card-hook">${escapeHtml(c.hook || '')}</div>
+          <div class="tap-more">Tap to pick · ⓘ for more</div>
+        </div>
+        <div class="card-face back" aria-hidden="true">
+          <button class="flip-back-btn" type="button" data-action="unflip" aria-label="Back to card">← Back</button>
+          ${backHtml(c)}
+        </div>
+      </div>
     `;
-    el.classList.remove('picked', 'dimmed');
+    el.classList.remove('picked', 'dimmed', 'flipped');
     el.dataset.cid = c.id;
+    el.setAttribute('aria-label', `Pick ${c.name}`);
   }
 
   function partyLabel(p) {
@@ -174,10 +272,34 @@
     renderProgress();
   }
 
+  /* ---------- card flip ---------- */
+  function setFlipped(slot, on) {
+    const el = $('#card-' + slot);
+    if (!el) return;
+    const isFlipped = el.classList.contains('flipped');
+    if (on === isFlipped) return;
+    el.classList.toggle('flipped', !!on);
+    const front = el.querySelector('.card-face.front');
+    const back = el.querySelector('.card-face.back');
+    if (front) front.setAttribute('aria-hidden', on ? 'true' : 'false');
+    if (back) back.setAttribute('aria-hidden', on ? 'false' : 'true');
+    if (el.dataset.cid) {
+      track(on ? 'flip_open' : 'flip_close', el.dataset.cid, 'matchup');
+    }
+  }
+  function unflipAll() {
+    setFlipped('a', false);
+    setFlipped('b', false);
+  }
+
   /* ---------- voting ---------- */
   let advancing = false;
   function vote(pickedSlot) {
     if (advancing) return;
+    // Reading mode: don't vote while flipped to back.
+    const pickedCard = $('#card-' + pickedSlot);
+    if (pickedCard && pickedCard.classList.contains('flipped')) return;
+    unflipAll();
     const m = matchups[cursor];
     const picked = pickedSlot === 'a' ? m.a : m.b;
     const lost   = pickedSlot === 'a' ? m.b : m.a;
@@ -269,29 +391,29 @@
     const top5 = ranked.slice(0, 5);
 
     $('#podium').innerHTML = top5.map((row, i) => `
-      <div class="rank-row ${i === 0 ? 'top' : ''}">
+      <div class="rank-row ${i === 0 ? 'top' : ''}" data-cid="${row.c.id}" role="button" tabindex="0" aria-label="More about ${escapeHtml(row.c.name)}">
         <div class="rank-num">${i + 1}</div>
         ${avatarHtml(row.c, i === 0 ? '' : 'sm')}
         <div class="rank-info">
           <div class="rank-name">
-            <span>${row.c.name}</span>
+            <span>${escapeHtml(row.c.name)}</span>
             <span class="party-chip party-${row.c.party}"><span class="dot"></span>${row.c.party}</span>
           </div>
-          <div class="rank-role">${row.c.role}</div>
+          <div class="rank-role">${escapeHtml(row.c.role)}</div>
         </div>
       </div>
     `).join('');
 
     $('#full-ranking').innerHTML = ranked.slice(5).map((row, i) => `
-      <div class="rank-row">
+      <div class="rank-row" data-cid="${row.c.id}" role="button" tabindex="0" aria-label="More about ${escapeHtml(row.c.name)}">
         <div class="rank-num">${i + 6}</div>
         ${avatarHtml(row.c, 'sm')}
         <div class="rank-info">
           <div class="rank-name">
-            <span>${row.c.name}</span>
+            <span>${escapeHtml(row.c.name)}</span>
             <span class="party-chip party-${row.c.party}"><span class="dot"></span>${row.c.party}</span>
           </div>
-          <div class="rank-role">${row.c.role}</div>
+          <div class="rank-role">${escapeHtml(row.c.role)}</div>
         </div>
       </div>
     `).join('');
@@ -300,6 +422,75 @@
 
     renderShare(top5);
   }
+
+  /* ---------- candidate detail sheet (results screen) ---------- */
+  let sheetReturnFocus = null;
+  function openDetailSheet(cid) {
+    const c = byId[cid];
+    if (!c) return;
+    const sheet = $('#detail-sheet');
+    sheetReturnFocus = document.activeElement;
+    $('#detail-sheet-avatar').outerHTML = avatarHtml(c, 'sm').replace('class="avatar', 'id="detail-sheet-avatar" class="avatar');
+    $('#detail-sheet-name').textContent = c.name;
+    $('#detail-sheet-role').textContent = c.role;
+    $('#detail-sheet-body').innerHTML = backHtml(c);
+    sheet.dataset.cid = cid;
+    sheet.classList.add('show');
+    sheet.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+    track('flip_open', cid, 'results');
+    // Initial focus on close button
+    setTimeout(() => $('#detail-sheet-close').focus(), 30);
+  }
+  function closeDetailSheet() {
+    const sheet = $('#detail-sheet');
+    if (!sheet.classList.contains('show')) return;
+    const cid = sheet.dataset.cid || null;
+    sheet.classList.remove('show');
+    sheet.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+    if (cid) track('flip_close', cid, 'results');
+    if (sheetReturnFocus && typeof sheetReturnFocus.focus === 'function') {
+      sheetReturnFocus.focus();
+      sheetReturnFocus = null;
+    }
+  }
+  function focusableInSheet() {
+    const sheet = $('#detail-sheet');
+    return Array.from(
+      sheet.querySelectorAll('button, a[href]')
+    ).filter(el => !el.hasAttribute('disabled') && el.getAttribute('aria-disabled') !== 'true');
+  }
+  // Delegate clicks for rank-rows and sheet
+  document.addEventListener('click', (e) => {
+    const sheet = $('#detail-sheet');
+    if (sheet.classList.contains('show')) {
+      const link = e.target.closest('a[data-link]');
+      if (link) {
+        track('link_' + link.dataset.link, link.dataset.cid, 'results');
+        return;
+      }
+      if (e.target === sheet || e.target.closest('#detail-sheet-close')) {
+        closeDetailSheet();
+        return;
+      }
+      // Click inside panel but not a link → keep open.
+      return;
+    }
+    const row = e.target.closest('.rank-row[data-cid]');
+    if (row) {
+      openDetailSheet(row.dataset.cid);
+    }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      const row = e.target.closest && e.target.closest('.rank-row[data-cid]');
+      if (row && document.activeElement === row) {
+        e.preventDefault();
+        openDetailSheet(row.dataset.cid);
+      }
+    }
+  });
 
   function buildShareText(top5, url) {
     const grid = top5.map(r => partyEmoji(r.c.party)).join('');
@@ -372,7 +563,7 @@
       <div style="font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-muted);font-weight:600;margin-bottom:8px;">A friend's ballot</div>
       <div style="font-size:16px;font-weight:600;margin-bottom:10px;">They picked these five — see if you agree.</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
-        ${friend.map((c, i) => `<span style="display:inline-flex;align-items:center;gap:6px;background:var(--surface-2);border-radius:99px;padding:4px 10px;font-size:13px;">${i+1}. ${partyEmoji(c.party)} ${c.name}</span>`).join('')}
+        ${friend.map((c, i) => `<span style="display:inline-flex;align-items:center;gap:6px;background:var(--surface-2);border-radius:99px;padding:4px 10px;font-size:13px;">${i+1}. ${partyEmoji(c.party)} ${escapeHtml(c.name)}</span>`).join('')}
       </div>`;
     screens.start.querySelector('.hero').appendChild(wrap);
     $('#start-btn').textContent = 'Build my ballot →';
@@ -391,8 +582,40 @@
 
   $('#start-btn').addEventListener('click', start);
   $('#restart-btn').addEventListener('click', () => { show('start'); $('#progress').hidden = true; });
-  $('#card-a').addEventListener('click', () => vote('a'));
-  $('#card-b').addEventListener('click', () => vote('b'));
+  function wireCard(slot) {
+    const el = $('#card-' + slot);
+    el.addEventListener('click', (e) => {
+      const flipBtn = e.target.closest('[data-action="flip"]');
+      if (flipBtn) {
+        e.preventDefault(); e.stopPropagation();
+        setFlipped(slot, true);
+        return;
+      }
+      const unflipBtn = e.target.closest('[data-action="unflip"]');
+      if (unflipBtn) {
+        e.preventDefault(); e.stopPropagation();
+        setFlipped(slot, false);
+        return;
+      }
+      const link = e.target.closest('a[data-link]');
+      if (link) {
+        track('link_' + link.dataset.link, link.dataset.cid, 'matchup');
+        return;
+      }
+      if (el.classList.contains('flipped')) return;
+      vote(slot);
+    });
+    el.addEventListener('keydown', (e) => {
+      if (e.target !== el) return;
+      if (e.key === 'Enter' || e.key === ' ') {
+        if (el.classList.contains('flipped')) return;
+        e.preventDefault();
+        vote(slot);
+      }
+    });
+  }
+  wireCard('a');
+  wireCard('b');
   $('#skip-btn').addEventListener('click', skip);
   $('#toggle-full-btn').addEventListener('click', () => {
     const el = $('#full-ranking');
@@ -406,12 +629,48 @@
 
   // keyboard
   window.addEventListener('keydown', (e) => {
+    const sheet = $('#detail-sheet');
+    const sheetOpen = sheet.classList.contains('show');
+    // Escape closes detail sheet from anywhere.
+    if (e.key === 'Escape' && sheetOpen) {
+      e.preventDefault();
+      closeDetailSheet();
+      return;
+    }
+    // Tab cycles focus within the detail sheet when open.
+    if (e.key === 'Tab' && sheetOpen) {
+      const items = focusableInSheet();
+      if (!items.length) { e.preventDefault(); return; }
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault(); last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault(); first.focus();
+      } else if (!sheet.contains(document.activeElement)) {
+        e.preventDefault(); first.focus();
+      }
+      return;
+    }
     if (!screens.vote.classList.contains('active')) return;
+    // Don't hijack typing in form fields if any are ever added.
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+    // Swallow vote shortcuts whenever either card is in reading mode.
+    const aFlipped = $('#card-a').classList.contains('flipped');
+    const bFlipped = $('#card-b').classList.contains('flipped');
+    if (aFlipped || bFlipped) {
+      if (e.key === '1' || e.key === '2' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') return;
+    }
     if (e.key === '1' || e.key === 'ArrowLeft')  vote('a');
     else if (e.key === '2' || e.key === 'ArrowRight') vote('b');
-    else if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); skip(); }
+    else if (e.key === ' ' || e.key === 'Enter') {
+      if (e.target && (e.target.id === 'card-a' || e.target.id === 'card-b')) return;
+      e.preventDefault();
+      skip();
+    }
   });
 
   renderStartPreview();
   renderFriendIntro();
+  flushEvents();
 })();

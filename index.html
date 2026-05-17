@@ -46,9 +46,9 @@
         <div class="label">Who would you rather see run?</div>
       </div>
       <div class="matchup" id="matchup">
-        <button class="card" id="card-a" aria-label="Pick left candidate"></button>
+        <div class="card" id="card-a" role="button" tabindex="0" aria-label="Pick left candidate"></div>
         <div class="vs">VS</div>
-        <button class="card" id="card-b" aria-label="Pick right candidate"></button>
+        <div class="card" id="card-b" role="button" tabindex="0" aria-label="Pick right candidate"></div>
       </div>
       <div class="skip-row">
         <button class="skip-btn" id="skip-btn">Skip this matchup ↓</button>
@@ -112,6 +112,22 @@
         <span><span id="stat-pct-b">0%</span> chose them</span>
       </div>
       <div class="stat-foot">based on simulated prior votes</div>
+    </div>
+  </div>
+
+  <!-- Candidate detail sheet (used on results screen) -->
+  <div class="detail-sheet" id="detail-sheet" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="detail-sheet-name">
+    <div class="detail-sheet-panel" id="detail-sheet-panel">
+      <div class="detail-sheet-handle"></div>
+      <div class="detail-sheet-header">
+        <div id="detail-sheet-avatar"></div>
+        <div>
+          <div class="detail-name" id="detail-sheet-name"></div>
+          <div class="detail-role" id="detail-sheet-role"></div>
+        </div>
+        <button class="detail-sheet-close" id="detail-sheet-close" aria-label="Close">×</button>
+      </div>
+      <div id="detail-sheet-body"></div>
     </div>
   </div>
 
