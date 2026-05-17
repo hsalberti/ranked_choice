@@ -11,6 +11,9 @@
 //   GET    /api/comparison/:country
 
 import {
+  handleAdminLeaderboards,
+  handleAdminOverview,
+  handleAdminTopPairs,
   handleBallotGet,
   handleBallotPost,
   handleComparison,
@@ -81,6 +84,20 @@ export default {
     const compMatch = /^\/api\/comparison\/([A-Z]{2})$/.exec(path);
     if (compMatch) {
       if (method === 'GET') return handleComparison(request, env, origin, compMatch[1]);
+      return methodNotAllowed(origin, 'GET');
+    }
+
+    // Admin (bearer-token gated; see handlers.checkAdminAuth)
+    if (path === '/api/admin/overview') {
+      if (method === 'GET') return handleAdminOverview(request, env, origin);
+      return methodNotAllowed(origin, 'GET');
+    }
+    if (path === '/api/admin/top-pairs') {
+      if (method === 'GET') return handleAdminTopPairs(request, env, origin);
+      return methodNotAllowed(origin, 'GET');
+    }
+    if (path === '/api/admin/leaderboards') {
+      if (method === 'GET') return handleAdminLeaderboards(request, env, origin);
       return methodNotAllowed(origin, 'GET');
     }
 

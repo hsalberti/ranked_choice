@@ -5,6 +5,7 @@
 import { ALL_IDS, isCandidateId, isHeadlineId } from './candidates';
 import {
   Env,
+  antiAbuseGate,
   badRequest,
   countryOf,
   json,
@@ -47,12 +48,14 @@ export async function handleEvent(
   env: Env,
   origin: string | null,
 ): Promise<Response> {
-  let body: { events?: EventInput[] };
+  let body: { events?: EventInput[]; t?: string };
   try {
     body = await request.json();
   } catch {
     return badRequest('invalid_json', origin);
   }
+  const blocked = await antiAbuseGate(request, env, 'event', body?.t, origin);
+  if (blocked) return blocked;
   const events = Array.isArray(body?.events) ? body.events : null;
   if (!events) return badRequest('events_required', origin);
   if (events.length === 0) return new Response(null, { status: 204 });
@@ -104,6 +107,7 @@ interface VoteInput {
   a: unknown;
   b: unknown;
   picked: unknown;
+  t?: string;
 }
 
 export async function handleVote(
@@ -117,6 +121,8 @@ export async function handleVote(
   } catch {
     return badRequest('invalid_json', origin);
   }
+  const blocked = await antiAbuseGate(request, env, 'vote', body.t, origin);
+  if (blocked) return blocked;
   if (!isCandidateId(body.a)) return badRequest('a_invalid', origin);
   if (!isCandidateId(body.b)) return badRequest('b_invalid', origin);
   if (body.a === body.b) return badRequest('a_b_equal', origin);
@@ -217,6 +223,7 @@ const BORDA_WEIGHTS = [5, 4, 3, 2, 1] as const;
 interface BallotInput {
   picks: unknown;
   extended?: unknown;
+  t?: string;
 }
 
 export async function handleBallotPost(
@@ -230,6 +237,8 @@ export async function handleBallotPost(
   } catch {
     return badRequest('invalid_json', origin);
   }
+  const blocked = await antiAbuseGate(request, env, 'ballot', body.t, origin);
+  if (blocked) return blocked;
   if (!Array.isArray(body.picks)) return badRequest('picks_required', origin);
   if (body.picks.length !== 5) return badRequest('picks_length', origin);
 
@@ -391,6 +400,121 @@ export async function handleComparison(
       })),
       country_total: n,
     }, 200, origin);
+  } catch (err) {
+    return serverError(String(err), origin);
+  }
+}
+
+// ----- Admin endpoints (Phase 5) -------------------------------------
+//
+// Bearer-token gated. If ADMIN_TOKEN isn't set on the deployed Worker,
+// all admin endpoints return 503 — fail-closed so a misconfigured prod
+// can't leak data.
+
+function checkAdminAuth(request: Request, env: Env): boolean {
+  if (!env.ADMIN_TOKEN) return false;
+  const auth = request.headers.get('authorization') || '';
+  const m = /^Bearer\s+(.+)$/i.exec(auth);
+  if (!m) return false;
+  // Constant-time-ish: lengths differ → quick reject; else compare char-by-char.
+  const a = m[1];
+  const b = env.ADMIN_TOKEN;
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+export async function handleAdminOverview(
+  request: Request,
+  env: Env,
+  origin: string | null,
+): Promise<Response> {
+  if (!checkAdminAuth(request, env)) {
+    return json({ error: 'unauthorized' }, env.ADMIN_TOKEN ? 401 : 503, origin);
+  }
+  try {
+    const today = todayUTC();
+    const sevenAgo = new Date(Date.now() - 7 * 86400 * 1000).toISOString().slice(0, 10);
+    const [votes, ballots, events, votes7d, ballots7d] = await env.DB.batch<{ n: number }>([
+      env.DB.prepare(`SELECT COALESCE(SUM(votes),0) AS n FROM pair_aggregates`),
+      env.DB.prepare(`SELECT COUNT(*) AS n FROM ballots`),
+      env.DB.prepare(`SELECT COALESCE(SUM(count),0) AS n FROM candidate_events`),
+      env.DB.prepare(`SELECT COALESCE(SUM(votes),0) AS n FROM pair_aggregates`),
+      env.DB.prepare(`SELECT COUNT(*) AS n FROM ballots WHERE created_at >= ?`).bind(Date.now() - 7 * 86400 * 1000),
+    ]);
+    const countries = await env.DB.prepare(`
+      SELECT country, COUNT(*) AS n FROM ballots GROUP BY country ORDER BY n DESC LIMIT 25
+    `).all<{ country: string; n: number }>();
+    return json({
+      today,
+      seven_days_ago: sevenAgo,
+      totals: {
+        votes: Number(votes.results[0]?.n ?? 0),
+        ballots: Number(ballots.results[0]?.n ?? 0),
+        events: Number(events.results[0]?.n ?? 0),
+      },
+      last_7d: {
+        votes_estimate: Number(votes7d.results[0]?.n ?? 0),
+        ballots: Number(ballots7d.results[0]?.n ?? 0),
+      },
+      ballots_by_country: countries.results,
+    }, 200, origin);
+  } catch (err) {
+    return serverError(String(err), origin);
+  }
+}
+
+export async function handleAdminTopPairs(
+  request: Request,
+  env: Env,
+  origin: string | null,
+): Promise<Response> {
+  if (!checkAdminAuth(request, env)) {
+    return json({ error: 'unauthorized' }, env.ADMIN_TOKEN ? 401 : 503, origin);
+  }
+  try {
+    const res = await env.DB.prepare(`
+      SELECT pair_key, SUM(votes) AS total FROM pair_aggregates
+      GROUP BY pair_key
+      ORDER BY total DESC
+      LIMIT 20
+    `).all<{ pair_key: string; total: number }>();
+    return json({ pairs: res.results }, 200, origin);
+  } catch (err) {
+    return serverError(String(err), origin);
+  }
+}
+
+export async function handleAdminLeaderboards(
+  request: Request,
+  env: Env,
+  origin: string | null,
+): Promise<Response> {
+  if (!checkAdminAuth(request, env)) {
+    return json({ error: 'unauthorized' }, env.ADMIN_TOKEN ? 401 : 503, origin);
+  }
+  try {
+    const res = await env.DB.prepare(`
+      WITH ranked AS (
+        SELECT
+          country,
+          candidate,
+          weighted,
+          appearances,
+          ROW_NUMBER() OVER (PARTITION BY country ORDER BY weighted DESC, candidate ASC) AS rk
+        FROM candidate_country_score
+      )
+      SELECT country, candidate, weighted, appearances, rk
+      FROM ranked WHERE rk <= 5
+      ORDER BY country, rk
+    `).all<{ country: string; candidate: string; weighted: number; appearances: number; rk: number }>();
+    // Group results by country
+    const byCountry: Record<string, Array<{ id: string; score: number; appearances: number }>> = {};
+    for (const r of res.results) {
+      (byCountry[r.country] ||= []).push({ id: r.candidate, score: r.weighted, appearances: r.appearances });
+    }
+    return json({ leaderboards: byCountry }, 200, origin);
   } catch (err) {
     return serverError(String(err), origin);
   }

@@ -38,9 +38,18 @@ migrations_dir = "../migrations"
 
 # ----- KV (Phase 5) --------------------------------------------------
 # Rate-limit storage; per-IP daily slots keyed by sha256(ip + DAILY_SALT).
+# Create with `wrangler kv namespace create RATE_LIMIT`, then paste the
+# returned id below + uncomment.
+#
 # [[kv_namespaces]]
 # binding = "KV"
 # id      = "TODO-from-wrangler-kv-namespace-create"
 
 # ----- Secrets (Phase 5) ---------------------------------------------
-# Set via `wrangler secret put TURNSTILE_SECRET` and similar.
+# Set the following via `wrangler secret put`. All optional — the Worker
+# degrades gracefully if any is missing.
+#
+#   wrangler secret put TURNSTILE_SECRET   # server-side Turnstile verify key
+#   wrangler secret put DAILY_SALT         # rotated daily-ish; used for ip-hash
+#   wrangler secret put ADMIN_TOKEN        # bearer token for /api/admin/*
+#                                          # (admin endpoints return 503 if unset)

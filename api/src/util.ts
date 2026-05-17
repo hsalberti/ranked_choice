@@ -2,10 +2,13 @@
 
 export interface Env {
   DB: D1Database;
-  // Phase 5+:
-  // KV: KVNamespace;
-  // TURNSTILE_SECRET: string;
-  // DAILY_SALT: string;
+  // All of these are optional. The Worker degrades gracefully if any is
+  // absent: no Turnstile = skip captcha check, no KV = skip rate limit,
+  // no ADMIN_TOKEN = admin endpoints disabled.
+  KV?: KVNamespace;
+  TURNSTILE_SECRET?: string;
+  DAILY_SALT?: string;
+  ADMIN_TOKEN?: string;
 }
 
 export const ALLOWED_ORIGINS: ReadonlySet<string> = new Set([
@@ -93,4 +96,94 @@ export function randomBallotId(len = 10): string {
 
 export function todayUTC(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+export function clientIp(request: Request): string {
+  return request.headers.get('cf-connecting-ip')
+    || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    || '0.0.0.0';
+}
+
+export async function dailyIpHash(ip: string, salt: string): Promise<string> {
+  const enc = new TextEncoder().encode(ip + '|' + salt + '|' + todayUTC());
+  const digest = await crypto.subtle.digest('SHA-256', enc);
+  return Array.from(new Uint8Array(digest))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+// ---- Turnstile verification ---------------------------------------
+// https://developers.cloudflare.com/turnstile/get-started/server-side-validation/
+// Returns true if the token is valid OR if Turnstile isn't configured
+// (so the Worker still works in dev without it).
+interface TurnstileResp { success?: boolean; }
+export async function verifyTurnstile(
+  token: string | undefined | null,
+  ip: string,
+  secret: string | undefined,
+): Promise<boolean> {
+  if (!secret) return true; // dev mode / not configured
+  if (!token) return false;
+  try {
+    const form = new FormData();
+    form.append('secret', secret);
+    form.append('response', token);
+    form.append('remoteip', ip);
+    const r = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+      method: 'POST',
+      body: form,
+    });
+    if (!r.ok) return false;
+    const j = await r.json() as TurnstileResp;
+    return j.success === true;
+  } catch {
+    return false;
+  }
+}
+
+// ---- KV rate limiting ---------------------------------------------
+// Per-IP-hash daily slot. Stops casual scripted abuse without
+// requiring any user-facing friction. Returns true if the request is
+// within budget; false if it should be rejected.
+export async function checkRateLimit(
+  env: Env,
+  ipHash: string,
+  kind: 'vote' | 'ballot' | 'event',
+  limits: { vote: number; ballot: number; event: number } = { vote: 50, ballot: 10, event: 200 },
+): Promise<boolean> {
+  if (!env.KV) return true; // not configured, allow
+  const key = `rl:${kind}:${ipHash}`;
+  const raw = await env.KV.get(key);
+  const current = raw ? parseInt(raw, 10) : 0;
+  if (Number.isNaN(current)) return true; // corrupted entry — fail open
+  if (current >= limits[kind]) return false;
+  // Best-effort write; expirationTtl scopes to ~24h.
+  await env.KV.put(key, String(current + 1), { expirationTtl: 60 * 60 * 26 });
+  return true;
+}
+
+// ---- Anti-abuse gate ----------------------------------------------
+// Convenience wrapper to call from every mutating handler.
+export async function antiAbuseGate(
+  request: Request,
+  env: Env,
+  kind: 'vote' | 'ballot' | 'event',
+  token: string | undefined | null,
+  origin: string | null,
+): Promise<Response | null> {
+  const ip = clientIp(request);
+  const salt = env.DAILY_SALT || 'dev-salt-do-not-use-in-prod';
+  const ipHash = await dailyIpHash(ip, salt);
+
+  if (env.KV) {
+    const ok = await checkRateLimit(env, ipHash, kind);
+    if (!ok) return json({ error: 'rate_limited' }, 429, origin);
+  }
+
+  if (env.TURNSTILE_SECRET) {
+    const ok = await verifyTurnstile(token, ip, env.TURNSTILE_SECRET);
+    if (!ok) return json({ error: 'turnstile_failed' }, 403, origin);
+  }
+
+  return null;
 }
