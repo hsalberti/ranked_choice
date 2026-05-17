@@ -405,6 +405,115 @@ export async function handleComparison(
   }
 }
 
+// ----- GET /api/og/:ballot_id (Phase 6) ------------------------------
+//
+// Returns a 1200×630 SVG poster of a ballot, suitable as an OpenGraph
+// preview. Inline SVG dodges the no-headless-Chrome limitation of
+// Workers; modern social platforms accept SVG as og:image.
+
+const PARTY_FILL: Record<string, string> = {
+  R: '#c8242e',
+  D: '#1a4e8a',
+  I: '#6b6b73',
+};
+
+function escXml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+const ID_TO_NAME: Record<string, string> = {
+  ramaswamy: 'Vivek Ramaswamy', booker: 'Cory Booker', desantis: 'Ron DeSantis',
+  buttigieg: 'Pete Buttigieg', scott: 'Tim Scott', ossoff: 'Jon Ossoff',
+  rfk: 'Robert F. Kennedy Jr.', cuban: 'Mark Cuban', carlson: 'Tucker Carlson',
+  stefanik: 'Elise Stefanik', mace: 'Nancy Mace', aoc: 'Alexandria Ocasio-Cortez',
+  vance: 'J.D. Vance', newsom: 'Gavin Newsom', gaetz: 'Matt Gaetz',
+  talarico: 'James Talarico', rubio: 'Marco Rubio', harris: 'Kamala Harris',
+  hegseth: 'Pete Hegseth', moore: 'Wes Moore', cruz: 'Ted Cruz',
+  shapiro: 'Josh Shapiro', greene: 'Marjorie Taylor Greene',
+  klobuchar: 'Amy Klobuchar', bannon: 'Steve Bannon',
+  pritzker: 'J.B. Pritzker', sanders_sh: 'Sarah Huckabee Sanders',
+  abbott: 'Greg Abbott', kemp: 'Brian Kemp', youngkin: 'Glenn Youngkin',
+  burgum: 'Doug Burgum', gabbard: 'Tulsi Gabbard', paul: 'Rand Paul',
+  kelly: 'Mark Kelly', vanhollen: 'Chris Van Hollen', smith_sa: 'Stephen A. Smith',
+  trumpjr: 'Donald Trump Jr.', emanuel: 'Rahm Emanuel',
+  raimondo: 'Gina Raimondo', landrieu: 'Mitch Landrieu',
+};
+const ID_TO_PARTY: Record<string, 'R' | 'D' | 'I'> = {
+  ramaswamy: 'R', booker: 'D', desantis: 'R', buttigieg: 'D', scott: 'R',
+  ossoff: 'D', rfk: 'I', cuban: 'I', carlson: 'R', stefanik: 'R',
+  mace: 'R', aoc: 'D', vance: 'R', newsom: 'D', gaetz: 'R',
+  talarico: 'D', rubio: 'R', harris: 'D', hegseth: 'R', moore: 'D',
+  cruz: 'R', shapiro: 'D', greene: 'R', klobuchar: 'D', bannon: 'R',
+  pritzker: 'D', sanders_sh: 'R', abbott: 'R', kemp: 'R', youngkin: 'R',
+  burgum: 'R', gabbard: 'R', paul: 'R', kelly: 'D', vanhollen: 'D',
+  smith_sa: 'D', trumpjr: 'R', emanuel: 'D', raimondo: 'D', landrieu: 'D',
+};
+
+export async function handleOgImage(
+  _request: Request,
+  env: Env,
+  origin: string | null,
+  id: string,
+): Promise<Response> {
+  if (!/^[0-9a-z]{4,32}$/.test(id)) return badRequest('id_invalid', origin);
+  try {
+    const row = await env.DB.prepare(`
+      SELECT picks, country FROM ballots WHERE id = ?
+    `).bind(id).first<{ picks: string; country: string }>();
+    if (!row) return notFound(origin);
+    const picks = row.picks.split(',').slice(0, 5);
+    const rows = picks.map((id, i) => {
+      const name = ID_TO_NAME[id] || id;
+      const party = ID_TO_PARTY[id] || 'I';
+      const fill = PARTY_FILL[party];
+      const y = 230 + i * 70;
+      return `
+        <g transform="translate(120 ${y})">
+          <circle cx="22" cy="22" r="22" fill="${fill}" opacity="0.92" />
+          <text x="22" y="29" font-size="22" font-weight="700" fill="#ffffff" text-anchor="middle"
+                font-family="-apple-system, Helvetica, Arial">${i + 1}</text>
+          <text x="70" y="34" font-size="30" font-weight="600" fill="#0b0b0d"
+                font-family="-apple-system, Helvetica, Arial">${escXml(name)}</text>
+        </g>`;
+    }).join('');
+    const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#f7f7f8" />
+  <text x="120" y="100" font-size="24" letter-spacing="6" font-weight="700" fill="#6b6b73"
+        font-family="-apple-system, Helvetica, Arial">THE 2028 BALLOT</text>
+  <text x="120" y="170" font-size="56" font-weight="700" fill="#0b0b0d"
+        font-family="-apple-system, Helvetica, Arial">Their top 5 for 2028</text>
+  ${rows}
+  <text x="120" y="590" font-size="20" fill="#6b6b73"
+        font-family="-apple-system, Helvetica, Arial">Build yours · 2028ballot.almaintel.com</text>
+</svg>`;
+    return new Response(svg, {
+      status: 200,
+      headers: {
+        'content-type': 'image/svg+xml; charset=utf-8',
+        'cache-control': 'public, max-age=300, s-maxage=3600',
+        ...corsHeadersForImage(origin),
+      },
+    });
+  } catch (err) {
+    return serverError(String(err), origin);
+  }
+}
+
+function corsHeadersForImage(origin: string | null): Record<string, string> {
+  // Images can be embedded cross-origin without CORS, but we still
+  // include allow-origin so the asset is fetchable by JS if needed.
+  return {
+    'access-control-allow-origin': '*',
+    vary: 'origin',
+  };
+}
+
 // ----- Admin endpoints (Phase 5) -------------------------------------
 //
 // Bearer-token gated. If ADMIN_TOKEN isn't set on the deployed Worker,

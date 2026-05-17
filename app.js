@@ -312,6 +312,17 @@
     window.scrollTo({ top: 0, behavior: 'instant' });
   }
 
+  function ageFromBorn(born, today = new Date()) {
+    if (!born) return null;
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(born);
+    if (!m) return null;
+    const [y, mo, d] = [+m[1], +m[2], +m[3]];
+    let age = today.getFullYear() - y;
+    const monthDiff = (today.getMonth() + 1) - mo;
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < d)) age -= 1;
+    return age;
+  }
+
   function avatarHtml(c, size) {
     const sizeClass = size === 'sm' ? ' sm' : size === 'xs' ? ' xs' : '';
     const photo = (window.CANDIDATE_PHOTOS || {})[c.id];
@@ -391,6 +402,7 @@
           ${avatarHtml(c)}
           <div class="card-name">${escapeHtml(c.name)}</div>
           <div class="card-role">${escapeHtml(c.role)}</div>
+          ${(() => { const a = ageFromBorn(c.born); return a == null ? '' : `<div class="card-age">${a} years old.</div>`; })()}
           <span class="party-chip party-${c.party}"><span class="dot"></span>${partyLabel(c.party)}</span>
           <div class="card-hook">${escapeHtml(c.hook || '')}</div>
           ${Array.isArray(c.resume) && c.resume.length ? `
@@ -1179,6 +1191,18 @@
       skip();
     }
   });
+
+  // Phase 6: update og:image to the per-ballot OG render when a deep
+  // link with `?b=<id>` is opened. Social-platform crawlers don't run
+  // JS so they'll see the static fallback, but Discord/Slack JS-side
+  // previews pick up the rewrite.
+  (function updateOgImage() {
+    const u = new URL(window.location.href);
+    const b = u.searchParams.get('b');
+    if (!b || b.includes(',') || !/^[0-9a-z]{4,32}$/.test(b)) return;
+    const tag = document.querySelector('meta[property="og:image"]');
+    if (tag) tag.setAttribute('content', `${API_BASE_URL}/api/og/${b}`);
+  })();
 
   renderStartPreview();
   renderFriendIntro();

@@ -55,3 +55,32 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: api
           command: d1 migrations apply ranked-choice-db --remote
+
+      - name: Smoke test live Worker
+        env:
+          BASE: https://ranked-choice-api.alberti-rick.workers.dev
+        run: |
+          set -e
+          # Allow a few seconds for the new deploy to propagate at the edge.
+          for i in 1 2 3 4 5; do
+            if curl -fsS "$BASE/api/health" >/dev/null; then break; fi
+            sleep 3
+          done
+
+          # /api/health: must include country field.
+          BODY=$(curl -fsS "$BASE/api/health")
+          echo "health: $BODY"
+          echo "$BODY" | grep -q '"country"' || (echo "missing country field" >&2 && exit 1)
+
+          # /api/stats with two known headline ids: must include local + global.
+          STATS=$(curl -fsS "$BASE/api/stats?a=ramaswamy&b=booker")
+          echo "stats: $STATS"
+          echo "$STATS" | grep -q '"local"'  || (echo "missing local field"  >&2 && exit 1)
+          echo "$STATS" | grep -q '"global"' || (echo "missing global field" >&2 && exit 1)
+
+          # /api/leaderboard/BR: schema-shape check.
+          BOARD=$(curl -fsS "$BASE/api/leaderboard/BR")
+          echo "leaderboard BR: $BOARD"
+          echo "$BOARD" | grep -q '"top5"' || (echo "missing top5 field" >&2 && exit 1)
+
+          echo "smoke test ok"

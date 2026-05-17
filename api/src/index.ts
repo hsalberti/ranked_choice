@@ -20,6 +20,7 @@ import {
   handleEvent,
   handleHealth,
   handleLeaderboard,
+  handleOgImage,
   handleStats,
   handleVote,
 } from './handlers';
@@ -84,6 +85,13 @@ export default {
     const compMatch = /^\/api\/comparison\/([A-Z]{2})$/.exec(path);
     if (compMatch) {
       if (method === 'GET') return handleComparison(request, env, origin, compMatch[1]);
+      return methodNotAllowed(origin, 'GET');
+    }
+
+    // /api/og/:ballot_id  — Phase 6 OG image (SVG)
+    const ogMatch = /^\/api\/og\/([0-9a-z]{4,32})$/.exec(path);
+    if (ogMatch) {
+      if (method === 'GET') return handleOgImage(request, env, origin, ogMatch[1]);
       return methodNotAllowed(origin, 'GET');
     }
 

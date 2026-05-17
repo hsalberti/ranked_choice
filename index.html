@@ -8,6 +8,13 @@
   <meta name="description" content="Build your 2028 presidential ballot one matchup at a time, then share your ranked picks." />
   <meta property="og:title" content="The 2028 Ballot" />
   <meta property="og:description" content="Tap your way to a personal top-5 for 2028, then share it like a Wordle score." />
+  <meta property="og:type" content="website" />
+  <!-- Dynamic per-ballot image is rendered by the Worker at
+       /api/og/:ballot_id. app.js rewrites this href on load when the
+       URL carries a `?b=<id>` param. The static fallback below is for
+       when no ballot is in scope (the start page). -->
+  <meta property="og:image" id="og-image" content="https://2028ballot.almaintel.com/og-default.png" />
+  <meta name="twitter:card" content="summary_large_image" />
   <title>The 2028 Ballot · Rank your picks</title>
 
   <!-- Phase 5 anti-abuse. To enable Cloudflare Turnstile, set this meta
@@ -19,6 +26,12 @@
   <!-- <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad" async defer></script> -->
 
   <link rel="stylesheet" href="styles.css" />
+
+  <!-- Cloudflare Web Analytics (Phase 6). Cookieless, no fingerprinting.
+       Uncomment + paste the beacon token from the CF dashboard
+       (Web Analytics → Add a site) to enable. -->
+  <!-- <script defer src='https://static.cloudflareinsights.com/beacon.min.js'
+              data-cf-beacon='{"token": "TODO-cf-web-analytics-token"}'></script> -->
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b0b0d'/%3E%3Ctext x='50%25' y='56%25' font-family='-apple-system,Helvetica' font-size='34' font-weight='700' text-anchor='middle' fill='white'%3E%E2%9C%93%3C/text%3E%3C/svg%3E" />
 </head>
 <body>
