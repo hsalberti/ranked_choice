@@ -1,0 +1,14 @@
+# Local dev secrets. Copy to .dev.vars (gitignored) when you want to
+# exercise Turnstile + admin auth + IP-hash salting locally with
+# `wrangler dev`.
+
+# Bearer for /api/admin/* (any non-empty string for local testing).
+ADMIN_TOKEN=dev-admin-token-123
+
+# Cloudflare Turnstile *secret* (server-side, paired with site key in
+# the frontend). Leave empty to skip captcha verification.
+# TURNSTILE_SECRET=
+
+# Daily-rotating salt for IP hashing. Rotated automatically per UTC day
+# in the hash, so this just needs to be non-empty and secret.
+DAILY_SALT=dev-salt-do-not-ship-this

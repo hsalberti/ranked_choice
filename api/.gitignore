@@ -1,7 +1,8 @@
 # Wrangler / Workers local state
 .wrangler/
 .dev.vars
-.dev.vars.*
+# Allow committed example to live alongside the gitignored real one.
+!.dev.vars.example
 node_modules/
 dist/
 *.tsbuildinfo

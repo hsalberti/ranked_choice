@@ -15,7 +15,7 @@ at any boundary and still have a working product.
 **Known gaps:** stats are simulated, no persistence across devices, no
 country awareness, no abuse protection.
 
-## Phase 0.5 — Extended ranking pool + public launch
+## Phase 0.5 — Extended ranking pool + public launch [done — 2026-05-16]
 
 Goal: ship a public URL **today** with an opt-in second round for
 politically-inclined users.
@@ -40,7 +40,7 @@ politically-inclined users.
 extended pool end-to-end on mobile; share text and deep link include
 both lists.
 
-## Phase 1 — Cloudflare plumbing (migrate off GH Pages)
+## Phase 1 — Cloudflare plumbing (migrate off GH Pages) [done — partial — 2026-05-17, /api scaffold + Workers + D1 migrations + CI workflow + custom-domain doc shipped; user runs wrangler login + d1 create to flip on]
 
 Goal: get a real backend in place without changing visible behavior.
 URL moves to the Cloudflare-hosted custom domain at the end.
@@ -161,7 +161,7 @@ Goal: surface how a user agrees and disagrees with their country.
 results screen mounts, and the totals match what `/api/leaderboard`
 returns.
 
-## Phase 5 — Anti-abuse hardening
+## Phase 5 — Anti-abuse hardening [done — partial — 2026-05-17, server-side gate complete, KV namespace + Turnstile site key still pending CF dashboard work]
 
 Goal: make casual scripted abuse unprofitable.
 
@@ -180,7 +180,7 @@ Goal: make casual scripted abuse unprofitable.
 within 50 requests and fails Turnstile on hit 51; admin dashboard
 loads behind Access.
 
-## Phase 6 — Polish + observability
+## Phase 6 — Polish + observability [done — partial — 2026-05-17, OG image endpoint + CI smoke test ready; Web Analytics + Lighthouse CI still need user-side enablement]
 
 Goal: production-grade readiness without scope creep.
 
