@@ -4,9 +4,7 @@ Phased plan from the current static prototype to a country-aware
 production site. Each phase is independently shippable — we can stop
 at any boundary and still have a working product.
 
-## Phase 0 — Static prototype ✅ (current)
-
-Status: **shipped to `claude/ranked-choice-voting-app-bHP9m`**.
+## Phase 0 — Static prototype [done — 2026-05-16]
 
 - Vanilla HTML/CSS/JS at the repo root.
 - 25 candidates, Elo-style ranking, Wordle-shaped share text.
@@ -17,9 +15,35 @@ Status: **shipped to `claude/ranked-choice-voting-app-bHP9m`**.
 **Known gaps:** stats are simulated, no persistence across devices, no
 country awareness, no abuse protection.
 
-## Phase 1 — Cloudflare plumbing
+## Phase 0.5 — Extended ranking pool + public launch
+
+Goal: ship a public URL **today** with an opt-in second round for
+politically-inclined users.
+
+- Add `EXTENDED_CANDIDATES` to `candidates.js` (~15 names sourced from
+  `research/nyt-2028-candidates.md`: e.g. JB Pritzker, Sarah Huckabee
+  Sanders, Greg Abbott, Brian Kemp, Glenn Youngkin, Doug Burgum, Tulsi
+  Gabbard, Rand Paul, Mark Kelly, Chris Van Hollen, Stephen A. Smith,
+  Donald Trump Jr., Rahm Emanuel, Gina Raimondo, Mitch Landrieu).
+- Results screen gains a "Keep ranking — N more candidates" CTA.
+- Opt-in flow runs pairwise matchups within the extended pool (each
+  candidate appears ~twice). Result is a ranked list appended below
+  the headline top-5.
+- Share artifact: Wordle-shape top-5 above the fold; compact ranked
+  extended list below (no emoji grid for the long tail).
+- Deep links: `?b=top5,…&x=ext1,ext2,…` encodes both pools. Missing
+  `x=` means the friend stopped at top-5.
+- localStorage persists both rankings.
+- Enable GitHub Pages on `main` → `https://hsalberti.github.io/ranked_choice/`.
+
+**Exit criteria:** public URL is live; "keep ranking" CTA runs the
+extended pool end-to-end on mobile; share text and deep link include
+both lists.
+
+## Phase 1 — Cloudflare plumbing (migrate off GH Pages)
 
 Goal: get a real backend in place without changing visible behavior.
+URL moves to the Cloudflare-hosted custom domain at the end.
 
 - Restructure repo into `/web`, `/api`, `/migrations`, `/specs`.
 - Create Cloudflare Pages project pointed at `/web` on `main`.
@@ -28,9 +52,52 @@ Goal: get a real backend in place without changing visible behavior.
 - GitHub Action: deploy `/web` to Pages and `/api` to Workers on push
   to `main`.
 - `GET /api/health` returns `{ ok: true, country: request.cf.country }`.
+- Redirect GitHub Pages URL → Cloudflare URL once the new domain is live.
 
 **Exit criteria:** custom domain serves the existing frontend, and
 `/api/health` returns the visitor's country from any device.
+
+## Phase 1.5 — Candidate detail cards & engagement tracking
+
+Goal: each candidate card has a front (punchy hook) + a back (factual
+detail) that the visitor can open, with click tracking on outbound
+links for editorial signal.
+
+**Frontend (ships independently of any backend).**
+
+- Extend `candidates.js`: add `hook`, `bio_long`, `storyline`, `policy[]`,
+  `moment`, and `links: { twitter, wikipedia }` per candidate. Remove
+  the old `bio` field. Apply to both headline and extended pools.
+- CSS 3D card flip on the matchup card (`perspective` + `preserve-3d` +
+  `backface-visibility`). Honor `prefers-reduced-motion`.
+- Two faces: front (avatar, name, role, party chip, hook, tap-more hint,
+  ⓘ button) and back (bio, storyline, policy bullets, moment/quote,
+  Twitter + Wikipedia link buttons, ← Back).
+- Click scoping: while flipped, the card is read-only — voting requires
+  flipping back first. Keyboard shortcuts (1/2/←/→) auto-unflip before
+  voting.
+- Results screen: tap any rank-row to open a bottom-sheet using the
+  same back-card content (`backHtml(c)` shared helper).
+- Client-side `track(event_type, candidate_id, context)` queues events
+  to `localStorage`. Events: `flip_open`, `flip_close`, `link_twitter`,
+  `link_wikipedia`. Context is `'matchup'` or `'results'`. Flush is
+  feature-flagged off via `EVENT_FLUSH_URL = null` until the backend
+  ships.
+
+**Backend (gated on Phase 1 plumbing).**
+
+- D1 migration: `candidate_events` table (see `tech-stack.md`).
+- `POST /api/event`: validates a batch of `{ candidate_id, event_type,
+  context }`, derives `country` from `request.cf.country`, increments
+  the per-day aggregate. Returns `204`.
+- Frontend: set `EVENT_FLUSH_URL` to the live endpoint. Queue drains.
+- Admin: `wrangler d1 execute` query recipes in the README — top
+  candidates by Twitter clicks last 7 days, per-country interest, etc.
+
+**Exit criteria:** card flips smoothly on mobile, voting is never
+accidentally triggered from the back face, link buttons open in a new
+tab, and (once the backend ships) D1 counts increment within a few
+seconds of a click.
 
 ## Phase 2 — Vote ingestion + country-filtered overlay
 
@@ -54,14 +121,15 @@ phone B (same country) within five seconds.
 Goal: country-level top-5 visible at the results screen.
 
 - D1 migrations: `ballots`, `candidate_country_score`.
-- `POST /api/ballot`: persist the top-5, update Borda scores in
-  `candidate_country_score`.
+- `POST /api/ballot`: persist the top-5 (and optional `extended`
+  ranking), update Borda scores in `candidate_country_score`. Only
+  the top-5 feeds Borda; the extended list is stored but not scored.
 - `GET /api/leaderboard/:country`: top-5 candidates by weighted score.
 - `GET /api/ballot/:id`: fetch a shared ballot by ID.
 - Frontend: after results render, fetch "Top 5 in {country}" and
   render it in a panel below the user's top-5.
-- Switch share links from `?b=ids` to `?b={ballot_id}` so the picks
-  live server-side.
+- Switch share links from `?b=ids&x=ids` to `?b={ballot_id}` so the
+  picks live server-side.
 
 **Exit criteria:** finishing a ballot triggers a `/api/ballot` POST,
 and the country leaderboard updates within a few seconds and matches
@@ -87,9 +155,10 @@ returns.
 
 Goal: make casual scripted abuse unprofitable.
 
-- Integrate Turnstile (invisible mode) on `/api/vote` and `/api/ballot`.
-- Workers KV rate limiter: 50 votes / 10 ballots per IP per day,
-  keyed by `sha256(ip + DAILY_SALT)`.
+- Integrate Turnstile (invisible mode) on `/api/vote`, `/api/ballot`,
+  and `/api/event`.
+- Workers KV rate limiter: 50 votes / 10 ballots / 200 events per IP
+  per day, keyed by `sha256(ip + DAILY_SALT)`.
 - Server-side validation: candidate IDs against the canonical list,
   ballot length exactly 5, no duplicate picks, country length 2.
 - Admin endpoint behind Cloudflare Access for a moderation dashboard
@@ -111,7 +180,7 @@ Goal: production-grade readiness without scope creep.
 - Open Graph image generator (Workers `og:image` endpoint) so shared
   links preview a stylized ballot card.
 - Smoke-test E2E script in CI hitting `/api/health`, `/api/stats`,
-  `/api/vote`, `/api/ballot` against a preview environment.
+  `/api/vote`, `/api/ballot`, `/api/event` against a preview environment.
 - Set up alerting (e.g. Slack webhook) when 5xx rate or KV write
   failures exceed thresholds.
 
@@ -145,3 +214,6 @@ Picked up only when there's demand signal from real usage.
   and first-party.
 - **Free tier first.** Don't introduce a paid dependency without
   evidence it's needed at our current scale.
+- **Roster is frozen.** The headline 25 and extended ~15 are locked
+  at v1 launch. Any change after that is a spec amendment, not a
+  content update.

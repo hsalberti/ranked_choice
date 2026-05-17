@@ -9,7 +9,10 @@ minutes and share it like a Wordle score.
 A toy ballot — not a poll, not a forecasting tool, not a campaign
 platform. Visitors pairwise-compare 25 candidates from across the
 American political spectrum, walk away with a personal top-5, and see
-how their picks compare to other voters in their country.
+how their picks compare to other voters in their country. Politically
+inclined users can opt into an **extended ranking** round that surfaces
+~15 more candidates beyond the headline 25 and appends them below the
+top-5.
 
 ## Audience
 
@@ -35,8 +38,13 @@ how their picks compare to other voters in their country.
 5. **Polished aesthetic.** Apple/CNN-leaning: clean type, generous
    whitespace, light + dark mode, no chartjunk. The candidate photos
    carry the color — the chrome stays restrained.
-6. **Free to use, cheap to run.** Stay inside Cloudflare's free-tier
-   limits until there is a measured reason not to.
+6. **Free to use, cheap to run.** Stay inside the chosen host's free
+   tier until there is a measured reason not to.
+7. **Roster is curated and frozen at launch.** The owner curates the
+   25-name headline roster and the ~15-name extended pool, using the
+   NYT's running roundup as one input among many. After v1 ships, the
+   roster does not change — the artifact is meant to be a snapshot of
+   the 2026 conversation, not a live tracker. <!-- inferred: "frozen at launch" reflects the user's "never refresh" answer; if a major news event makes a name untenable, treat that as a spec-amendment decision, not a routine update -->
 
 ## Non-goals
 
@@ -49,6 +57,8 @@ how their picks compare to other voters in their country.
   vote contents, we collect nothing — no demographics, no email,
   no analytics that profile individuals.
 - **Not a forecasting tool.** We don't model 2028 outcomes.
+- **Not a live tracker.** The roster does not update with the news
+  cycle; see principle 7.
 
 ## Success signals
 
@@ -59,6 +69,8 @@ In rough priority order:
 3. Friend-link conversion (arrived via `?b=` → completed own ballot)
    above 50%.
 4. Median time-to-finish under 90 seconds.
+5. Extended-ranking opt-in (finishers → opened the extended pool)
+   above 10% — signal for whether the long tail is worth keeping.
 
 Anything that erodes the snackable, neutral, anonymous character of the
 product is a regression even if it lifts a number.
