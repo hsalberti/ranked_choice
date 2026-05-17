@@ -14,8 +14,32 @@
   const K = 36; // Elo K-factor
   const STORAGE_LOCAL_VOTES = 'ballot28.localvotes.v1';
   const STORAGE_EVENTS = 'ballot28.events.v1';
-  // Flip to a real URL when /api/event ships (specs/roadmap.md Phase 1.5).
-  const EVENT_FLUSH_URL = null;
+
+  // ---- API base URL --------------------------------------------------
+  // Auto-detect: localhost dev → local wrangler dev on 8787,
+  // anywhere else → the deployed Worker.
+  // Set window.API_BASE_URL_OVERRIDE before this script loads to force it.
+  const API_BASE_URL = (function () {
+    if (typeof window.API_BASE_URL_OVERRIDE === 'string') return window.API_BASE_URL_OVERRIDE;
+    const h = window.location.hostname;
+    if (h === 'localhost' || h === '127.0.0.1' || h === '') return 'http://127.0.0.1:8787';
+    // Deployed Worker. Update this line if the Worker is renamed/redeployed.
+    return 'https://ranked-choice-api.alberti-rick.workers.dev';
+  })();
+  const EVENT_FLUSH_URL = `${API_BASE_URL}/api/event`;
+  let API_REACHABLE = true; // flips to false after a network failure; we stop calling.
+  let countryHint = null;   // populated by /api/health on boot.
+
+  function apiFetch(path, init) {
+    if (!API_REACHABLE) return Promise.reject(new Error('api_unreachable'));
+    const opts = Object.assign({ credentials: 'omit', mode: 'cors' }, init || {});
+    return fetch(API_BASE_URL + path, opts).catch(err => {
+      // Once one request fails (CORS / network / cold deploy), stop trying for
+      // the rest of this session so the UI never hangs. Manual reload re-enables.
+      API_REACHABLE = false;
+      throw err;
+    });
+  }
 
   const C = window.CANDIDATES;
   const EC = window.EXTENDED_CANDIDATES || [];
@@ -95,20 +119,46 @@
     flushEvents();
   }
   function flushEvents() {
-    if (!EVENT_FLUSH_URL) return;
+    if (!API_REACHABLE) return;
     const q = loadEvents();
     if (!q.length) return;
     const batch = q.slice(0, 100);
-    fetch(EVENT_FLUSH_URL, {
+    apiFetch('/api/event', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ events: batch }),
+      body: JSON.stringify({ events: batch.map(e => ({
+        candidate_id: e.candidate_id,
+        event_type: e.event_type,
+        context: e.context,
+      })) }),
       keepalive: true,
     }).then(r => {
       if (!r.ok) return;
       const remaining = loadEvents().slice(batch.length);
       try { localStorage.setItem(STORAGE_EVENTS, JSON.stringify(remaining)); } catch {}
     }).catch(() => {});
+  }
+
+  /* ---------- remote vote (best-effort, fire-and-forget) ---------- */
+  function postRemoteVote(aId, bId, pickedId) {
+    if (!API_REACHABLE) return;
+    apiFetch('/api/vote', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ a: aId, b: bId, picked: pickedId }),
+      keepalive: true,
+    }).catch(() => {});
+  }
+
+  /* ---------- remote pair stats (replaces seeded estimate when reachable) ---------- */
+  function fetchRemotePairStats(aId, bId) {
+    if (!API_REACHABLE) return Promise.resolve(null);
+    const u = new URL(`${API_BASE_URL}/api/stats`);
+    u.searchParams.set('a', aId);
+    u.searchParams.set('b', bId);
+    return apiFetch(u.pathname + '?' + u.searchParams.toString(), {
+      method: 'GET',
+    }).then(r => r.ok ? r.json() : null).catch(() => null);
   }
 
   function loadLocalVotes() {
@@ -212,7 +262,11 @@
 
   function avatarHtml(c, size) {
     const sizeClass = size === 'sm' ? ' sm' : size === 'xs' ? ' xs' : '';
-    return `<div class="avatar party-${c.party}${sizeClass}" aria-hidden="true">${initials(c.name)}</div>`;
+    const photo = (window.CANDIDATE_PHOTOS || {})[c.id];
+    const inner = photo
+      ? `<img src="${photo}" alt="" loading="lazy" onerror="this.remove();this.parentNode.textContent='${initials(c.name)}'">`
+      : initials(c.name);
+    return `<div class="avatar party-${c.party}${sizeClass}${photo ? ' has-photo' : ''}" aria-hidden="true">${inner}</div>`;
   }
 
   function renderStartPreview() {
@@ -231,6 +285,7 @@
 
   function backHtml(c) {
     const policy = (c.policy || []).map(p => `<li>${escapeHtml(p)}</li>`).join('');
+    const resume = (c.resume || []).map(r => `<li>${escapeHtml(r)}</li>`).join('');
     const tw = c.links && c.links.twitter ? c.links.twitter : null;
     const wk = c.links && c.links.wikipedia ? c.links.wikipedia : null;
     const twIcon = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M18.244 2H21.5l-7.5 8.572L23 22h-6.84l-5.36-7.01L4.5 22H1.244l8.04-9.19L1 2h7.014l4.85 6.41L18.244 2Zm-1.2 18h1.86L7.04 4H5.1l11.944 16Z"/></svg>`;
@@ -240,6 +295,11 @@
       <div class="back-header">
         <div class="back-name">${escapeHtml(c.name)}</div>
       </div>
+      ${resume ? `
+      <div class="back-section">
+        <div class="back-section-label">Resume</div>
+        <ul class="back-resume">${resume}</ul>
+      </div>` : ''}
       ${c.bio_long ? `
       <div class="back-section">
         <div class="back-section-label">Bio</div>
@@ -281,6 +341,10 @@
           <div class="card-role">${escapeHtml(c.role)}</div>
           <span class="party-chip party-${c.party}"><span class="dot"></span>${partyLabel(c.party)}</span>
           <div class="card-hook">${escapeHtml(c.hook || '')}</div>
+          ${Array.isArray(c.resume) && c.resume.length ? `
+            <ul class="card-resume" aria-label="Career">
+              ${c.resume.map(line => `<li>${escapeHtml(line)}</li>`).join('')}
+            </ul>` : ''}
           <div class="tap-more">Tap to pick · ⓘ for more</div>
         </div>
         <div class="card-face back" aria-hidden="true">
@@ -367,6 +431,9 @@
     const prevRatingLost   = pRatings()[lost.id];
     applyElo(picked.id, lost.id);
     saveLocalVote(m.a.id, m.b.id, picked.id);
+    // Fire to backend in the headline round only — extended pool votes
+    // are local-only (per specs/tech-stack.md, only top-5 feeds Borda).
+    if (mode === 'main') postRemoteVote(m.a.id, m.b.id, picked.id);
     voteHistory.push({
       type: 'vote',
       cursor: pCursor(),
@@ -430,8 +497,10 @@
 
   /* ---------- stat overlay ---------- */
   let overlayTimer = null;
+  let overlayContext = null; // { aId, bId, pickedId } — guards async remote update
   function showStatOverlay(m, pickedId, after) {
     const stats = fetchPairStats(m.a.id, m.b.id, pickedId);
+    overlayContext = { aId: m.a.id, bId: m.b.id, pickedId };
     const overlay = $('#stat-overlay');
     $('#stat-avatar-a').outerHTML = avatarHtml(m.a, 'xs').replace('class="avatar', 'id="stat-avatar-a" class="avatar');
     $('#stat-avatar-b').outerHTML = avatarHtml(m.b, 'xs').replace('class="avatar', 'id="stat-avatar-b" class="avatar');
@@ -464,8 +533,40 @@
     clearTimeout(overlayTimer);
     overlayTimer = setTimeout(() => {
       overlay.classList.remove('show');
+      overlayContext = null;
       setTimeout(after, 180);
     }, 1450);
+
+    // Best-effort: replace the seeded estimate with real backend stats
+    // if they arrive while the overlay is still on screen. Headline
+    // round only (extended votes are local-only).
+    if (mode === 'main') {
+      fetchRemotePairStats(m.a.id, m.b.id).then(real => {
+        if (!real) return;
+        if (!overlayContext) return; // overlay already dismissed
+        if (overlayContext.aId !== m.a.id || overlayContext.bId !== m.b.id) return;
+        // Local +1 in case our own POST /api/vote hasn't been counted yet.
+        const localA = (real.local[m.a.id] || 0) + (pickedId === m.a.id ? 1 : 0);
+        const localB = (real.local[m.b.id] || 0) + (pickedId === m.b.id ? 1 : 0);
+        const tot = localA + localB;
+        if (tot < 5) return; // too noisy, keep the seeded display
+        const rPctA = Math.round((localA / tot) * 100);
+        const rPctB = 100 - rPctA;
+        $('#stat-pct-a').textContent = rPctA + '%';
+        $('#stat-pct-b').textContent = rPctB + '%';
+        $('#stat-seg-a').style.width = rPctA + '%';
+        $('#stat-seg-b').style.width = rPctB + '%';
+        const sf = document.querySelector('.stat-foot');
+        if (sf) sf.textContent = `based on ${tot} votes in ${countryHint || real.country}`;
+        const yourPctReal = pickedId === m.a.id ? rPctA : rPctB;
+        const winnerName = (pickedId === m.a.id ? m.a : m.b).name.split(' ').slice(-1)[0];
+        const hl = yourPctReal >= 60 ? `You're with the majority — ${yourPctReal}% picked ${winnerName}.`
+                  : yourPctReal >= 50 ? `It's close — ${yourPctReal}% leaned your way.`
+                  : yourPctReal >= 40 ? `Bit of a split — ${100 - yourPctReal}% went the other direction.`
+                  : `You're in the minority — only ${yourPctReal}% picked them.`;
+        $('#stat-headline').textContent = hl;
+      });
+    }
   }
   // tap overlay to advance faster
   document.addEventListener('click', (e) => {
@@ -536,6 +637,118 @@
     renderShare(top5);
     renderKeepRanking();
     renderExtendedRanking();
+
+    // Phase 3: persist the ballot server-side, then swap the share URL
+    // from `?b=ids` to `?b=<ballot_id>` (shorter + fetchable). Phase 4:
+    // pull the country leaderboard + comparison.
+    submitBallot(top5, extendedDone ? extRankedList() : null)
+      .then(saved => {
+        if (saved && saved.id) {
+          serverBallotId = saved.id;
+          // Re-render share with the shorter URL.
+          renderShare(top5);
+        }
+      })
+      .catch(() => {});
+    renderCountryLeaderboard();
+    renderCountryComparison(top5);
+  }
+
+  /* ---------- ballot persistence + leaderboard ---------- */
+  let serverBallotId = null;
+  function submitBallot(top5, extList) {
+    if (!API_REACHABLE) return Promise.resolve(null);
+    const picks = top5.map(r => r.c.id);
+    const body = { picks };
+    if (extList && extList.length) {
+      body.extended = extList.map(r => r.c.id);
+    }
+    return apiFetch('/api/ballot', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    }).then(r => r.ok ? r.json() : null).catch(() => null);
+  }
+
+  function renderCountryLeaderboard() {
+    const host = $('#country-leaderboard-rows');
+    const wrap = $('#country-leaderboard');
+    if (!host || !wrap) return;
+    if (!API_REACHABLE) { wrap.hidden = true; return; }
+    const country = countryHint || 'BR';
+    apiFetch(`/api/leaderboard/${country}`, { method: 'GET' })
+      .then(r => r.ok ? r.json() : null)
+      .then(j => {
+        if (!j || !Array.isArray(j.top5) || j.top5.length === 0 || j.n < 1) {
+          wrap.hidden = true;
+          return;
+        }
+        wrap.hidden = false;
+        const label = $('#country-leaderboard-label');
+        if (label) {
+          label.textContent = `Top 5 in ${flagOf(country)} · ${j.n} ballot${j.n === 1 ? '' : 's'}`;
+        }
+        host.innerHTML = j.top5.map((row, i) => {
+          const c = byIdAll[row.id];
+          if (!c) return '';
+          return `
+            <div class="rank-row" data-cid="${row.id}" role="button" tabindex="0" aria-label="More about ${escapeHtml(c.name)}">
+              <div class="rank-num">${i + 1}</div>
+              ${avatarHtml(c, 'sm')}
+              <div class="rank-info">
+                <div class="rank-name">
+                  <span>${escapeHtml(c.name)}</span>
+                  <span class="party-chip party-${c.party}"><span class="dot"></span>${c.party}</span>
+                </div>
+                <div class="rank-role">${escapeHtml(c.role)}</div>
+              </div>
+            </div>`;
+        }).join('');
+      })
+      .catch(() => { wrap.hidden = true; });
+  }
+
+  function renderCountryComparison(top5) {
+    const wrap = $('#country-comparison');
+    if (!wrap) return;
+    if (!API_REACHABLE) { wrap.hidden = true; return; }
+    const country = countryHint || 'BR';
+    apiFetch(`/api/comparison/${country}`, { method: 'GET' })
+      .then(r => r.ok ? r.json() : null)
+      .then(j => {
+        if (!j || !Array.isArray(j.country_top5) || j.country_total < 1) {
+          wrap.hidden = true;
+          return;
+        }
+        const ownIds = new Set(top5.map(r => r.c.id));
+        const countryIds = new Set(j.country_top5.map(c => c.id));
+        const overlap = [...ownIds].filter(id => countryIds.has(id));
+        wrap.hidden = false;
+        const note = $('#country-comparison-note');
+        if (note) {
+          note.textContent = `Agree with ${flagOf(country)} on ${overlap.length}/5 picks`
+            + (overlap.length === 0 ? ' — total split.' : '.');
+        }
+      })
+      .catch(() => { wrap.hidden = true; });
+  }
+
+  function flagOf(cc) {
+    if (!/^[A-Z]{2}$/.test(cc)) return cc;
+    const A = 0x1F1E6;
+    return String.fromCodePoint(A + cc.charCodeAt(0) - 65, A + cc.charCodeAt(1) - 65);
+  }
+
+  function renderCountryBadge(country) {
+    let badge = $('#country-badge');
+    if (!badge) {
+      badge = document.createElement('div');
+      badge.id = 'country-badge';
+      badge.className = 'country-badge';
+      const meta = document.querySelector('.start-meta');
+      if (meta && meta.parentNode) meta.parentNode.insertBefore(badge, meta.nextSibling);
+    }
+    badge.textContent = `Voting from ${flagOf(country)} ${country}`;
   }
 
   /* ---------- extended ranking ---------- */
@@ -685,14 +898,22 @@
   }
 
   function shareUrl(top5) {
-    const ids = top5.map(r => r.c.id).join(',');
     const u = new URL(window.location.href);
-    u.searchParams.set('b', ids);
-    if (extendedDone) {
-      const extIds = extRankedList().map(r => r.c.id).join(',');
-      if (extIds) u.searchParams.set('x', extIds);
-    } else {
+    if (serverBallotId) {
+      // Server-side ballot id: short URL, also persists the extended
+      // ranking on the server. Drop the x= param since the server has it.
+      u.searchParams.set('b', serverBallotId);
       u.searchParams.delete('x');
+    } else {
+      // Fallback: legacy inline format, in case the API was unreachable.
+      const ids = top5.map(r => r.c.id).join(',');
+      u.searchParams.set('b', ids);
+      if (extendedDone) {
+        const extIds = extRankedList().map(r => r.c.id).join(',');
+        if (extIds) u.searchParams.set('x', extIds);
+      } else {
+        u.searchParams.delete('x');
+      }
     }
     u.hash = '';
     return u.toString();
@@ -732,11 +953,14 @@
   }
 
   /* ---------- friend ballot intro ---------- */
-  function readFriendBallot() {
+  function readFriendBallotInline() {
     const u = new URL(window.location.href);
     const rawB = u.searchParams.get('b');
     const rawX = u.searchParams.get('x');
     if (!rawB) return null;
+    // If the param has no commas and looks like a server-side ballot id,
+    // skip inline parsing and let the async fetcher handle it.
+    if (!rawB.includes(',') && /^[0-9a-z]{4,32}$/.test(rawB)) return null;
     const ids = rawB.split(',').map(s => s.trim()).filter(s => byId[s]).slice(0, 5);
     if (!ids.length) return null;
     const extIds = rawX ? rawX.split(',').map(s => s.trim()).filter(s => byIdExt[s]) : [];
@@ -745,9 +969,28 @@
       extended: extIds.map(id => byIdExt[id]),
     };
   }
+  function fetchFriendBallotById() {
+    const u = new URL(window.location.href);
+    const rawB = u.searchParams.get('b');
+    if (!rawB || rawB.includes(',') || !/^[0-9a-z]{4,32}$/.test(rawB)) return Promise.resolve(null);
+    return apiFetch(`/api/ballot/${rawB}`, { method: 'GET' })
+      .then(r => r.ok ? r.json() : null)
+      .then(j => {
+        if (!j || !Array.isArray(j.picks)) return null;
+        const top5 = j.picks.map(id => byId[id]).filter(Boolean);
+        if (!top5.length) return null;
+        const ext = Array.isArray(j.extended) ? j.extended.map(id => byIdExt[id]).filter(Boolean) : [];
+        return { top5, extended: ext };
+      })
+      .catch(() => null);
+  }
   function renderFriendIntro() {
-    const friend = readFriendBallot();
-    if (!friend) return;
+    // Try inline first (legacy URLs); then fetch by id (current URLs).
+    const inline = readFriendBallotInline();
+    if (inline) return paintFriendIntro(inline);
+    fetchFriendBallotById().then(f => { if (f) paintFriendIntro(f); });
+  }
+  function paintFriendIntro(friend) {
     const chip = (c, i) => `<span style="display:inline-flex;align-items:center;gap:6px;background:var(--surface-2);border-radius:99px;padding:4px 10px;font-size:13px;">${i+1}. ${partyEmoji(c.party)} ${escapeHtml(c.name)}</span>`;
     const wrap = document.createElement('div');
     wrap.style.cssText = 'background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin:18px 0;box-shadow:var(--shadow);';
@@ -888,4 +1131,15 @@
   renderStartPreview();
   renderFriendIntro();
   flushEvents();
+
+  // Boot-time API check: warms the country hint used by the stat
+  // overlay and surfaces "Voting from 🇧🇷" on the start screen.
+  apiFetch('/api/health', { method: 'GET' })
+    .then(r => r.ok ? r.json() : null)
+    .then(j => {
+      if (!j || !j.country) return;
+      countryHint = j.country;
+      renderCountryBadge(j.country);
+    })
+    .catch(() => {});
 })();

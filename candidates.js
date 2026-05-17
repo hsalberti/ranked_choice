@@ -17,7 +17,12 @@ window.CANDIDATES = [
     name: 'Vivek Ramaswamy',
     party: 'R',
     role: 'Governor of Ohio',
-    hook: 'The 38-year-old biotech founder who turned a 2024 primary run into the Ohio governorship.',
+    resume: [
+      'Governor of Ohio (2027–pres.)',
+      'Co-lead, Department of Government Efficiency (2025)',
+      'Founder/CEO, Roivant Sciences (2014–2021)',
+    ],
+    hook: 'Sold biotech. Picked a fight with the federal bureaucracy. Ended up in Columbus — and still wants the bigger chair.',
     bio_long:
       'Vivek Ramaswamy founded the biotech holding company Roivant Sciences in his twenties and became a fixture on the populist right during the 2024 Republican primary. ' +
       'After exiting the presidential race he was tapped to help shape the Trump administration’s "Department of Government Efficiency" effort, then pivoted to Ohio and won the 2026 governor’s race. ' +
@@ -43,7 +48,12 @@ window.CANDIDATES = [
     name: 'Cory Booker',
     party: 'D',
     role: 'U.S. Senator from New Jersey',
-    hook: 'Newark’s former mayor running on a "radical love" message and a long criminal-justice record.',
+    resume: [
+      'U.S. Senator from New Jersey (2013–pres.)',
+      'Mayor of Newark (2006–2013)',
+      'Newark City Councilman (1998–2002)',
+    ],
+    hook: 'Soaring oratory in an era that has stopped clapping. Broke Strom Thurmond’s filibuster record without breaking a sweat.',
     bio_long:
       'Cory Booker rose to national attention as the mayor of Newark, where he was famous for personally responding to constituent emergencies. ' +
       'Elected to the Senate in 2013, he authored the First Step Act, one of the few bipartisan criminal-justice reforms of the last decade. ' +
@@ -68,8 +78,13 @@ window.CANDIDATES = [
     id: 'desantis',
     name: 'Ron DeSantis',
     party: 'R',
-    role: 'Former Governor of Florida',
-    hook: 'Two-term Florida governor who reshaped the state on schools and immigration before a flat 2024 primary.',
+    role: 'Governor of Florida',
+    resume: [
+      'Governor of Florida (2019–pres.)',
+      'U.S. Representative, FL-6 (2013–2018)',
+      'U.S. Navy JAG officer (2004–2010)',
+    ],
+    hook: 'Built the red-state laboratory the rest of the GOP copied. Then ran for president and learned charisma isn’t a policy paper.',
     bio_long:
       'A former Navy JAG officer and three-term congressman, Ron DeSantis was elected governor of Florida in 2018 and re-elected by nearly 20 points in 2022. ' +
       'His tenure produced sweeping legislation on school curricula, public-university governance, abortion, and immigration enforcement — turning Florida into the most-watched red-state laboratory of the era. ' +
@@ -95,7 +110,12 @@ window.CANDIDATES = [
     name: 'Pete Buttigieg',
     party: 'D',
     role: 'Former U.S. Secretary of Transportation',
-    hook: 'The first openly gay cabinet secretary, building a 2028 case after running DOT through the infrastructure law.',
+    resume: [
+      'U.S. Secretary of Transportation (2021–2025)',
+      'Mayor of South Bend, Indiana (2012–2020)',
+      'U.S. Navy Reserve intelligence officer (2009–2017)',
+    ],
+    hook: 'The Rhodes Scholar who treats cable news like a chess clock. Already ran a $1.2T law — and every debate stage he stepped on.',
     bio_long:
       'Pete Buttigieg was the two-term mayor of South Bend, Indiana, before his 2020 presidential run made him the first openly gay candidate to win a state primary contest. ' +
       'As President Biden’s transportation secretary he led implementation of the $1.2T bipartisan infrastructure law, navigating supply-chain crises, the East Palestine derailment, and an FAA staffing fight. ' +
@@ -121,7 +141,12 @@ window.CANDIDATES = [
     name: 'Tim Scott',
     party: 'R',
     role: 'U.S. Senator from South Carolina',
-    hook: 'The Senate Banking chair selling a sunny, opportunity-zone version of Republican economic policy.',
+    resume: [
+      'U.S. Senator from South Carolina (2013–pres.)',
+      'U.S. Representative, SC-1 (2011–2013)',
+      'Charleston County Councilman (1995–2009)',
+    ],
+    hook: 'The only Black Republican in the Senate, selling Reaganite optimism in a party that has moved past it. Sunny where everyone else is angry.',
     bio_long:
       'Tim Scott is the only Black Republican currently in the U.S. Senate, appointed to the seat in 2013 and elected three times since. ' +
       'He chairs the Senate Banking, Housing, and Urban Affairs Committee, where he has pushed the bipartisan opportunity-zone tax program he co-authored in 2017. ' +
@@ -147,7 +172,12 @@ window.CANDIDATES = [
     name: 'Jon Ossoff',
     party: 'D',
     role: 'U.S. Senator from Georgia',
-    hook: 'The documentary producer who flipped Georgia blue and now chairs the Senate’s top investigative subcommittee.',
+    resume: [
+      'U.S. Senator from Georgia (2021–pres.)',
+      'Chair, Permanent Subcommittee on Investigations (2023–pres.)',
+      'Investigative documentary producer (2013–2017)',
+    ],
+    hook: 'Flipped Georgia at 33, then walked off cable news on purpose. Investigates prisons and contractors for sport.',
     bio_long:
       'Jon Ossoff became the youngest sitting U.S. senator at 33 after winning the 2021 Georgia runoff that delivered Democrats their Senate majority. ' +
       'Before politics he produced investigative documentaries on corruption and human rights. ' +
@@ -172,8 +202,13 @@ window.CANDIDATES = [
     id: 'rfk',
     name: 'Robert F. Kennedy Jr.',
     party: 'I',
-    role: 'Former U.S. Secretary of Health & Human Services',
-    hook: 'Environmental lawyer turned HHS Secretary, with a vaccine-skeptic record and a Kennedy surname.',
+    role: 'U.S. Secretary of Health & Human Services',
+    resume: [
+      'U.S. Secretary of Health & Human Services (2025–pres.)',
+      'Founder, Waterkeeper Alliance (1999–2024)',
+      'Environmental attorney, Hudson Riverkeeper (1986–2017)',
+    ],
+    hook: 'Kennedy by name, contrarian by trade. Running American public health on instincts that scare half the medical establishment.',
     bio_long:
       'Robert F. Kennedy Jr. spent decades as an environmental attorney, founding Waterkeeper Alliance and litigating major Hudson River and PCB cases. ' +
       'He ran for president in 2024, first as a Democrat and then as an independent, before withdrawing and endorsing Donald Trump. ' +
@@ -199,7 +234,12 @@ window.CANDIDATES = [
     name: 'Mark Cuban',
     party: 'I',
     role: 'Entrepreneur and investor',
-    hook: 'Cost Plus Drugs founder and ex-Mavericks owner, a frequent flirt with a centrist independent run.',
+    resume: [
+      'Founder, Cost Plus Drugs (2022–pres.)',
+      'Owner, Dallas Mavericks (2000–2023)',
+      'Founder/CEO, Broadcast.com (1995–1999)',
+    ],
+    hook: 'Won an NBA title. Blew up the drug-pricing model. Flirted with running every cycle and never filed.',
     bio_long:
       'Mark Cuban built his fortune selling Broadcast.com to Yahoo in 1999 for $5.7B in stock. He bought the Dallas Mavericks in 2000, won an NBA title in 2011, and sold majority control of the team in 2023. ' +
       'He launched Cost Plus Drugs in 2022 — a generic-drug marketplace built on transparent markups — and remains a fixture on Shark Tank. ' +
@@ -225,7 +265,12 @@ window.CANDIDATES = [
     name: 'Tucker Carlson',
     party: 'R',
     role: 'Independent media commentator',
-    hook: 'Former Fox News host running The Tucker Carlson Network with a large podcast and X audience.',
+    resume: [
+      'Host, The Tucker Carlson Network (2023–pres.)',
+      'Host, Tucker Carlson Tonight, Fox News (2016–2023)',
+      'Co-founder, The Daily Caller (2010–2020)',
+    ],
+    hook: 'Built the loudest microphone on the populist right after Fox cut him loose. Sat across from Putin and pulled 200M views.',
     bio_long:
       'Tucker Carlson hosted the highest-rated cable news show in America at Fox News from 2016 until his abrupt April 2023 departure. ' +
       'He launched The Tucker Carlson Network as a subscription and X-distributed show, conducted a high-profile interview with Vladimir Putin in 2024, and has hosted multiple GOP candidates and Trump administration officials. ' +
@@ -251,7 +296,12 @@ window.CANDIDATES = [
     name: 'Elise Stefanik',
     party: 'R',
     role: 'Governor of New York',
-    hook: 'House Republican leader turned New York governor — the first GOP win in Albany in two decades.',
+    resume: [
+      'Governor of New York (2027–pres.)',
+      'Chair, House Republican Conference (2021–2025)',
+      'U.S. Representative, NY-21 (2015–2027)',
+    ],
+    hook: 'Took out two Ivy League presidents in a single hearing. Then took Albany — the first red governor of New York in 20 years.',
     bio_long:
       'Elise Stefanik was elected to the U.S. House at 30, the youngest woman ever at the time, and rose to chair the House Republican Conference after Liz Cheney was ousted in 2021. ' +
       'Her viral December 2023 questioning of Ivy League presidents on antisemitism led directly to two resignations and made her a Trump-orbit favorite. ' +
@@ -277,7 +327,12 @@ window.CANDIDATES = [
     name: 'Nancy Mace',
     party: 'R',
     role: 'U.S. Representative from South Carolina',
-    hook: 'Three-term Republican with a maverick streak on tech, oversight, and reproductive rights.',
+    resume: [
+      'U.S. Representative, SC-1 (2021–pres.)',
+      'South Carolina State Representative (2018–2020)',
+      'First woman graduate of The Citadel (1999)',
+    ],
+    hook: 'Pro-IVF, anti-McCarthy, and on-camera every chance she gets. Hard to pin to a lane — that is the point.',
     bio_long:
       'Nancy Mace was the first woman to graduate from The Citadel — South Carolina’s military college — before winning a state House seat and then a U.S. House seat in 2020. ' +
       'She has alternated between hard-line and moderate positions, supporting contraception access and IVF protections while also voting to remove Speaker Kevin McCarthy in 2023. ' +
@@ -303,7 +358,12 @@ window.CANDIDATES = [
     name: 'Alexandria Ocasio-Cortez',
     party: 'D',
     role: 'U.S. Representative from New York',
-    hook: 'Progressive caucus standard-bearer with the largest social-media platform in Congress.',
+    resume: [
+      'U.S. Representative, NY-14 (2019–pres.)',
+      'Sanders 2016 organizer (2016)',
+      'Bartender, Flats Fix, Union Square (2017–2018)',
+    ],
+    hook: 'Squad founder. Largest social-media reach in Congress. Was online before she was in office — and the generational handoff Democrats keep delaying.',
     bio_long:
       'Alexandria Ocasio-Cortez upset a ten-term incumbent in a 2018 Bronx-Queens primary at age 28, becoming the youngest woman ever elected to Congress. ' +
       'She has built a national platform around climate policy, housing, and tax fairness, anchored by an Instagram-and-livestream communication style with few peers on Capitol Hill. ' +
@@ -329,7 +389,12 @@ window.CANDIDATES = [
     name: 'J.D. Vance',
     party: 'R',
     role: 'Vice President of the United States',
-    hook: 'Hillbilly Elegy author turned Ohio senator turned vice president — Trump’s presumed heir.',
+    resume: [
+      'Vice President of the United States (2025–pres.)',
+      'U.S. Senator from Ohio (2023–2025)',
+      'Author, Hillbilly Elegy (2016)',
+    ],
+    hook: 'Yale Law to venture capital to Trump’s heir apparent. The whole 2028 GOP primary calendar bends around whether he wants it.',
     bio_long:
       'J.D. Vance grew up in Middletown, Ohio, served four years in the Marines, and wrote the bestselling memoir Hillbilly Elegy in 2016. ' +
       'After a venture-capital career he won the Ohio Senate seat in 2022 with Trump’s endorsement. ' +
@@ -354,8 +419,13 @@ window.CANDIDATES = [
     id: 'newsom',
     name: 'Gavin Newsom',
     party: 'D',
-    role: 'Former Governor of California',
-    hook: 'Two-term California governor with a national profile built on high-profile fights with Republican governors.',
+    role: 'Governor of California',
+    resume: [
+      'Governor of California (2019–pres.)',
+      'Lt. Governor of California (2011–2019)',
+      'Mayor of San Francisco (2004–2011)',
+    ],
+    hook: 'Picks fights with Trump for sport. The Democrat finally willing to swing back.',
     bio_long:
       'Gavin Newsom served as mayor of San Francisco, lieutenant governor, and then governor of California, where he was easily re-elected in 2022 and finished his second term in early 2027. ' +
       'He has used the office to pick high-profile fights with Republican governors, on issues from gun policy and abortion to oil-industry regulation. ' +
@@ -381,7 +451,12 @@ window.CANDIDATES = [
     name: 'Matt Gaetz',
     party: 'R',
     role: 'Conservative commentator',
-    hook: 'The former congressman and brief AG nominee, now hosting a nightly populist-right cable show.',
+    resume: [
+      'Host, nightly OAN program (2025–pres.)',
+      'AG nominee, Trump administration (Nov 2024, withdrawn)',
+      'U.S. Representative, FL-1 (2017–2025)',
+    ],
+    hook: 'Took down a Speaker. Blew up his own AG nomination in a week. Loud and unsponsored — exactly the brand.',
     bio_long:
       'Matt Gaetz represented Florida’s Panhandle in the U.S. House for four terms and led the 2023 motion to vacate that removed Speaker Kevin McCarthy. ' +
       'In late 2024 he was named Donald Trump’s attorney general nominee, then withdrew within a week amid Senate opposition and a House Ethics Committee report. ' +
@@ -407,7 +482,12 @@ window.CANDIDATES = [
     name: 'James Talarico',
     party: 'D',
     role: 'Texas State Representative',
-    hook: 'Former teacher whose viral statehouse speeches on faith and public schools built a national following.',
+    resume: [
+      'Texas State Representative, Dist. 50 (2019–pres.)',
+      'Seminary student, Austin Presbyterian (2023–pres.)',
+      'Middle-school English teacher, San Antonio (2014–2017)',
+    ],
+    hook: 'A teacher quoting scripture against vouchers. The Democrat figuring out how to talk to the church about the church.',
     bio_long:
       'James Talarico taught middle-school English in San Antonio before winning a state House seat in 2018 at age 29. ' +
       'A current seminary student, he has built a national audience through floor speeches that frame Christian theology against vouchers, abortion bans, and school-prayer mandates. ' +
@@ -433,7 +513,12 @@ window.CANDIDATES = [
     name: 'Marco Rubio',
     party: 'R',
     role: 'U.S. Secretary of State',
-    hook: 'Former Florida senator running U.S. foreign policy after the 2024 campaign promotion.',
+    resume: [
+      'U.S. Secretary of State (2025–pres.)',
+      'U.S. Senator from Florida (2011–2025)',
+      'Speaker, Florida House of Representatives (2007–2008)',
+    ],
+    hook: 'Tea Party kid grown into Trump’s diplomat. 99–0 confirmation, hawkish in three theaters, Vance’s likeliest rival or running mate.',
     bio_long:
       'Marco Rubio served as speaker of the Florida House, won a U.S. Senate seat in 2010 in a celebrated Tea Party–era upset, and ran for president in 2016. ' +
       'In the Senate he chaired the Intelligence Committee and championed sanctions against the Cuban and Venezuelan regimes. ' +
@@ -459,7 +544,12 @@ window.CANDIDATES = [
     name: 'Kamala Harris',
     party: 'D',
     role: 'Former Vice President',
-    hook: 'The 2024 Democratic nominee and former VP — biggest name in the field, with the biggest open question.',
+    resume: [
+      'Vice President of the United States (2021–2025)',
+      'U.S. Senator from California (2017–2021)',
+      'Attorney General of California (2011–2017)',
+    ],
+    hook: 'Highest name ID in the field. Also the biggest open question — does the party want a rematch or a reset?',
     bio_long:
       'Kamala Harris served as district attorney of San Francisco, California attorney general, and U.S. senator before becoming the first woman and first Black or South Asian American vice president in 2021. ' +
       'She became the Democratic nominee in 2024 after Joe Biden withdrew, losing to Donald Trump in the closest electoral vote since 2000. ' +
@@ -485,7 +575,12 @@ window.CANDIDATES = [
     name: 'Pete Hegseth',
     party: 'R',
     role: 'U.S. Secretary of Defense',
-    hook: 'Army veteran and ex-Fox host running a controversial force-structure and recruiting overhaul at the Pentagon.',
+    resume: [
+      'U.S. Secretary of Defense (2025–pres.)',
+      'Co-host, Fox & Friends Weekend (2014–2024)',
+      'Army National Guard, Iraq/Afghanistan (2003–2014)',
+    ],
+    hook: 'Confirmed by a tiebreak. Governs the Pentagon like a cable segment. "Warrior ethos" is the slogan — the rest is contested.',
     bio_long:
       'Pete Hegseth served in the Army National Guard with deployments to Iraq, Afghanistan, and Guantanamo before becoming a Fox News host. ' +
       'Donald Trump nominated him as Secretary of Defense in late 2024, and he was confirmed in early 2025 after a sharply contested hearing process. ' +
@@ -511,7 +606,12 @@ window.CANDIDATES = [
     name: 'Wes Moore',
     party: 'D',
     role: 'Governor of Maryland',
-    hook: 'Army-veteran governor and bestselling author quietly building a national profile from Annapolis.',
+    resume: [
+      'Governor of Maryland (2023–pres.)',
+      'CEO, Robin Hood Foundation (2017–2022)',
+      'Army captain, 82nd Airborne, Afghanistan (2005–2014)',
+    ],
+    hook: 'Rhodes Scholar, paratrooper, bestseller, governor — and had never run for anything before Annapolis. The party elders’ favorite name nobody has heard of.',
     bio_long:
       'Wes Moore was a Rhodes Scholar and Army captain who deployed to Afghanistan, then ran the Robin Hood Foundation — one of New York’s largest anti-poverty organizations. ' +
       'His memoir The Other Wes Moore was a bestseller and a high-school staple. ' +
@@ -537,7 +637,12 @@ window.CANDIDATES = [
     name: 'Ted Cruz',
     party: 'R',
     role: 'U.S. Senator from Texas',
-    hook: 'Three-term Texas senator, 2016 primary runner-up, and one of the chamber’s sharpest committee questioners.',
+    resume: [
+      'U.S. Senator from Texas (2013–pres.)',
+      'Texas Solicitor General (2003–2008)',
+      'Director, FTC Office of Policy Planning (2001–2003)',
+    ],
+    hook: 'Argued nine cases at the Supreme Court. Lost 2016 to a guy who insulted his wife. Came back with a podcast empire — hated, and re-elected anyway.',
     bio_long:
       'Ted Cruz served as Texas solicitor general — arguing nine cases before the U.S. Supreme Court — before winning his Senate seat in 2012. ' +
       'He finished second to Donald Trump in the 2016 Republican primary and survived a closer-than-expected 2018 re-election against Beto O’Rourke. ' +
@@ -563,7 +668,12 @@ window.CANDIDATES = [
     name: 'Josh Shapiro',
     party: 'D',
     role: 'Governor of Pennsylvania',
-    hook: 'Pennsylvania governor with a bipartisan-budget brand and a 2024 VP shortlist near-miss.',
+    resume: [
+      'Governor of Pennsylvania (2023–pres.)',
+      'Pennsylvania Attorney General (2017–2023)',
+      'Pennsylvania State Representative (2005–2012)',
+    ],
+    hook: 'Rebuilt a Philly interstate in 12 days. Wins Pennsylvania. Whoever holds that state in 2028 probably holds the country.',
     bio_long:
       'Josh Shapiro served two terms as Pennsylvania attorney general — including a high-profile clergy-abuse grand-jury report — before winning the governor’s race in 2022 by nearly 15 points. ' +
       'He has made bipartisan budget deals a calling card and signed major infrastructure and education funding packages. ' +
@@ -589,7 +699,12 @@ window.CANDIDATES = [
     name: 'Marjorie Taylor Greene',
     party: 'R',
     role: 'U.S. Representative from Georgia',
-    hook: 'Outspoken Freedom Caucus member from northwest Georgia with a sustained MAGA-media platform.',
+    resume: [
+      'U.S. Representative, GA-14 (2021–pres.)',
+      'House Freedom Caucus member (2021–pres.)',
+      'Co-owner, Taylor Commercial construction (2002–2020)',
+    ],
+    hook: 'The chamber’s loudest member, file-a-motion-to-vacate division. A run would be about volume — and volume gets its share of votes.',
     bio_long:
       'Marjorie Taylor Greene was elected to Congress in 2020 from a deep-red northwest Georgia district. ' +
       'She has been a House Freedom Caucus stalwart, was briefly stripped of committee assignments by Democrats in 2021, and was restored to them when Republicans took the House majority in 2023. ' +
@@ -615,7 +730,12 @@ window.CANDIDATES = [
     name: 'Amy Klobuchar',
     party: 'D',
     role: 'U.S. Senator from Minnesota',
-    hook: 'Senior Minnesota senator and 2020 primary alum, currently running for governor at home.',
+    resume: [
+      'U.S. Senator from Minnesota (2007–pres.)',
+      '2026 Minnesota gubernatorial candidate',
+      'Hennepin County Attorney (1999–2007)',
+    ],
+    hook: 'Pragmatic Midwest. Bill-count champion of the Senate. Running for governor at home with one eye on Iowa.',
     bio_long:
       'Amy Klobuchar has represented Minnesota in the Senate since 2007, winning re-election three times and earning a reputation as a high-volume legislator on antitrust, agriculture, and election-security bills. ' +
       'She ran in the 2020 Democratic primary, won the New Hampshire primary debate cycle, and dropped out before Super Tuesday to endorse Joe Biden. ' +
@@ -641,7 +761,12 @@ window.CANDIDATES = [
     name: 'Steve Bannon',
     party: 'R',
     role: 'Host of War Room',
-    hook: 'Former White House chief strategist and architect of the populist-right media ecosystem.',
+    resume: [
+      'Host, War Room podcast (2019–pres.)',
+      'White House Chief Strategist (Jan–Aug 2017)',
+      'Executive chair, Breitbart News (2012–2018)',
+    ],
+    hook: 'Architect of the populist-right media machine. Won’t run himself — but no GOP primary lane gets oxygen without his nod.',
     bio_long:
       'Steve Bannon ran Breitbart News, served as Donald Trump’s 2016 campaign CEO, and then White House chief strategist for the first seven months of the Trump administration. ' +
       'His daily War Room podcast has become a key venue for MAGA-coalition organizing and primary-campaign endorsements. ' +
@@ -673,7 +798,12 @@ window.EXTENDED_CANDIDATES = [
     name: 'J.B. Pritzker',
     party: 'D',
     role: 'Governor of Illinois',
-    hook: 'Hyatt-heir billionaire governor running Illinois as a national-Democratic counterweight to red-state policy.',
+    resume: [
+      'Governor of Illinois (2019–pres.)',
+      'Founder, Pritzker Group venture capital (1996–2018)',
+      'Member, Hyatt Hotels Corp. board (1985–2018)',
+    ],
+    hook: 'Billionaire governor putting his own money against red-state policy. Loud where Democrats have been polite — and willing to fund both sides of that bet.',
     bio_long:
       'J.B. Pritzker is an heir to the Hyatt hotel fortune and a venture investor who served on a string of Chicago civic boards before running for governor in 2018. ' +
       'He won re-election by 13 points in 2022 and has pushed a sweeping agenda — abortion-rights protections, an assault-weapons ban, and large state-funded child-care expansions. ' +
@@ -699,7 +829,12 @@ window.EXTENDED_CANDIDATES = [
     name: 'Sarah Huckabee Sanders',
     party: 'R',
     role: 'Governor of Arkansas',
-    hook: 'Former Trump press secretary turned Arkansas governor with an unusually high in-party approval rating.',
+    resume: [
+      'Governor of Arkansas (2023–pres.)',
+      'White House Press Secretary (2017–2019)',
+      'Campaign manager, Mike Huckabee for President (2016)',
+    ],
+    hook: 'First woman governor of Arkansas. Framed the GOP as "normal" in a SOTU response at 40. Trump-era staff turning into Trump-era executives.',
     bio_long:
       'Sarah Huckabee Sanders is the daughter of former Arkansas governor Mike Huckabee and served as White House press secretary in Donald Trump\'s first administration. ' +
       'She was elected governor of Arkansas in 2022, becoming the first woman to hold the office, and signed sweeping education and tax-cut packages in her first term. ' +
@@ -725,7 +860,12 @@ window.EXTENDED_CANDIDATES = [
     name: 'Greg Abbott',
     party: 'R',
     role: 'Governor of Texas',
-    hook: 'Three-term Texas governor whose border-busing program reshaped the national immigration debate.',
+    resume: [
+      'Governor of Texas (2015–pres.)',
+      'Texas Attorney General (2003–2015)',
+      'Justice, Texas Supreme Court (1996–2001)',
+    ],
+    hook: 'Bused migrants to Manhattan and changed the national immigration conversation. Three terms in, the question is whether he wants a fourth office or the biggest one.',
     bio_long:
       'Greg Abbott served as Texas attorney general for 12 years before winning the governor\'s office in 2014 and re-election in 2018 and 2022. ' +
       'His border-security initiative — including the Operation Lone Star deployment and migrant-busing program to northern cities — became the model for Republican governors across the country. ' +
@@ -751,7 +891,12 @@ window.EXTENDED_CANDIDATES = [
     name: 'Brian Kemp',
     party: 'R',
     role: 'Governor of Georgia',
-    hook: 'Term-limited Georgia governor who broke with Trump on 2020 election certification and won re-election anyway.',
+    resume: [
+      'Governor of Georgia (2019–pres.)',
+      'Georgia Secretary of State (2010–2018)',
+      'Georgia State Senator (2003–2007)',
+    ],
+    hook: 'Told Trump no on 2020 and won the primary anyway. The Republican proof-of-concept for tolerating the boss without bending the knee.',
     bio_long:
       'Brian Kemp served as Georgia secretary of state before winning a narrow 2018 governor\'s race against Stacey Abrams. ' +
       'He resisted Donald Trump\'s pressure to overturn Georgia\'s 2020 election result, then crushed a Trump-backed primary challenge from David Perdue in 2022 and beat Abrams again in the general by seven points. ' +
@@ -777,7 +922,12 @@ window.EXTENDED_CANDIDATES = [
     name: 'Glenn Youngkin',
     party: 'R',
     role: 'Former Governor of Virginia',
-    hook: 'Carlyle Group ex-CEO who flipped Virginia in 2021 with a parents-and-schools campaign, term-limited at 53.',
+    resume: [
+      'Governor of Virginia (2022–2026)',
+      'Co-CEO, The Carlyle Group (2018–2020)',
+      'Carlyle Group executive (1995–2020)',
+    ],
+    hook: 'Private equity into a purple-state win, term-limited at 53. Gaffe-free, donor-ready — the kind of Republican the country club still wants.',
     bio_long:
       'Glenn Youngkin spent 25 years at the Carlyle Group, rising to co-CEO, before stepping down in 2020 to run for governor of Virginia. ' +
       'He won in 2021 by riding a parents-rights education message that ate into Democratic suburbs and ended the term-limited governorship as one of the most-watched Republican executives in the country. ' +
@@ -803,7 +953,12 @@ window.EXTENDED_CANDIDATES = [
     name: 'Doug Burgum',
     party: 'R',
     role: 'U.S. Secretary of the Interior',
-    hook: 'Microsoft-billionaire former North Dakota governor running Interior with a fossil-fuels-and-mining brief.',
+    resume: [
+      'U.S. Secretary of the Interior (2025–pres.)',
+      'Governor of North Dakota (2016–2024)',
+      'Founder/CEO, Great Plains Software (1983–2001)',
+    ],
+    hook: 'Microsoft money, North Dakota plainspoke. Now runs federal lands and energy permitting — the most underrated dark horse in the cabinet.',
     bio_long:
       'Doug Burgum built Great Plains Software, sold it to Microsoft for $1.1B in 2001, and became a Microsoft senior vice president before returning to North Dakota to serve as governor for two terms. ' +
       'He ran briefly in the 2024 Republican primary as a low-key economic-development candidate before withdrawing and endorsing Donald Trump. ' +
@@ -829,7 +984,12 @@ window.EXTENDED_CANDIDATES = [
     name: 'Tulsi Gabbard',
     party: 'R',
     role: 'Director of National Intelligence',
-    hook: 'Former Democratic congresswoman, 2020 primary candidate, now Trump\'s top intelligence official.',
+    resume: [
+      'Director of National Intelligence (2025–pres.)',
+      'U.S. Representative, HI-2 (2013–2021)',
+      'Army National Guard officer, Iraq deployment (2002–pres.)',
+    ],
+    hook: 'Switched parties, kept the anti-interventionism. Ended Kamala’s 2020 run on a debate stage — now runs every U.S. intelligence agency.',
     bio_long:
       'Tulsi Gabbard served four terms in the U.S. House from Hawaii as a Democrat, ran for the 2020 Democratic presidential nomination, and left the party in 2022 citing what she called its "elitist cabal." ' +
       'She endorsed Donald Trump in 2024 and joined the new administration as Director of National Intelligence after Senate confirmation in early 2025. ' +
@@ -855,7 +1015,12 @@ window.EXTENDED_CANDIDATES = [
     name: 'Rand Paul',
     party: 'R',
     role: 'U.S. Senator from Kentucky',
-    hook: 'Ophthalmologist-turned-senator and 2016 primary contender carrying the libertarian-wing torch.',
+    resume: [
+      'U.S. Senator from Kentucky (2011–pres.)',
+      'Chair, Senate Homeland Security Committee (2025–pres.)',
+      'Practicing ophthalmologist (1993–2010)',
+    ],
+    hook: 'The libertarian lane never wins a primary — but it sets the agenda anyway. Filibustered drones for 13 hours and made it cool.',
     bio_long:
       'Rand Paul is an ophthalmologist who entered the Senate in 2011 on a Tea Party wave and has held the seat through three elections. ' +
       'He ran for president in 2016 and has built a brand around opposition to mass surveillance, foreign intervention, and pandemic-era public-health restrictions. ' +
@@ -881,7 +1046,12 @@ window.EXTENDED_CANDIDATES = [
     name: 'Mark Kelly',
     party: 'D',
     role: 'U.S. Senator from Arizona',
-    hook: 'Former astronaut, gun-control advocate, and Arizona senator with a center-left brand and national ambitions.',
+    resume: [
+      'U.S. Senator from Arizona (2020–pres.)',
+      'NASA astronaut, four shuttle missions (1996–2011)',
+      'U.S. Navy combat pilot, Persian Gulf (1987–2011)',
+    ],
+    hook: 'Astronaut. Navy pilot. Husband to Gabby Giffords. Outruns the party in a swing state — exactly the résumé a careful Democratic donor draws on a napkin.',
     bio_long:
       'Mark Kelly is a retired U.S. Navy captain who flew four space shuttle missions before retiring from NASA in 2011 to care for his wife, former Rep. Gabby Giffords, after she was shot. ' +
       'He won the 2020 Arizona special Senate election and the 2022 general by clear margins, becoming one of the few Democrats to consistently outrun the party in a swing state. ' +
@@ -907,7 +1077,12 @@ window.EXTENDED_CANDIDATES = [
     name: 'Chris Van Hollen',
     party: 'D',
     role: 'U.S. Senator from Maryland',
-    hook: 'Maryland senator known for Latin American policy work and the early-2026 standoff over deportations.',
+    resume: [
+      'U.S. Senator from Maryland (2017–pres.)',
+      'U.S. Representative, MD-8 (2003–2017)',
+      'Chair, DCCC (2007–2011)',
+    ],
+    hook: 'Flew to El Salvador to drag back a wrongfully deported constituent. The Senate lifer suddenly in the news cycle.',
     bio_long:
       'Chris Van Hollen represented Maryland in the U.S. House for 14 years before winning a Senate seat in 2016. ' +
       'He chairs the Senate Foreign Relations Subcommittee on Western Hemisphere affairs and has been a vocal critic of the Trump administration\'s deportation operations in Central America. ' +
@@ -933,7 +1108,12 @@ window.EXTENDED_CANDIDATES = [
     name: 'Stephen A. Smith',
     party: 'D',
     role: 'ESPN host and commentator',
-    hook: 'ESPN\'s top sports personality publicly flirting with an independent-Democratic 2028 run.',
+    resume: [
+      'Host, ESPN First Take (2012–pres.)',
+      'Host, The Stephen A. Smith Show podcast (2018–pres.)',
+      'Sports columnist, Philadelphia Inquirer (1994–2008)',
+    ],
+    hook: 'Loudest microphone in sports media, increasingly aimed at the Democratic Party. Says he’ll run if the field stays empty — and the field is staying empty.',
     bio_long:
       'Stephen A. Smith hosts ESPN\'s flagship debate show First Take and has the largest individual platform in U.S. sports media. ' +
       'He has used his podcast and YouTube channel to comment increasingly on politics, including high-profile criticisms of the Biden 2024 campaign and the Democratic Party\'s working-class outreach. ' +
@@ -959,7 +1139,12 @@ window.EXTENDED_CANDIDATES = [
     name: 'Donald Trump Jr.',
     party: 'R',
     role: 'Executive Vice President, The Trump Organization',
-    hook: 'The president\'s eldest son and an unfiltered MAGA-coalition voice on podcasts and X.',
+    resume: [
+      'Host, Triggered podcast (2022–pres.)',
+      'Executive VP, The Trump Organization (2001–pres.)',
+      'Trump campaign surrogate (2016, 2020, 2024)',
+    ],
+    hook: 'Picked Vance for his dad. Big platform, no office, no qualms. The dynasty play if the family decides one of them stays on the ballot.',
     bio_long:
       'Donald Trump Jr. has helped run the Trump Organization since the 2000s and emerged as one of his father\'s most active political surrogates during the 2016, 2020, and 2024 campaigns. ' +
       'He hosts the Triggered podcast, has a massive following on X, and has been credited with engineering the J.D. Vance VP pick in 2024. ' +
@@ -985,7 +1170,12 @@ window.EXTENDED_CANDIDATES = [
     name: 'Rahm Emanuel',
     party: 'D',
     role: 'Former U.S. Ambassador to Japan',
-    hook: 'Former Chicago mayor and Obama chief of staff with a famously sharp-elbowed style and a fresh policy platform.',
+    resume: [
+      'U.S. Ambassador to Japan (2022–2025)',
+      'Mayor of Chicago (2011–2019)',
+      'White House Chief of Staff (2009–2010)',
+    ],
+    hook: 'Sharp-elbowed centrist on a "Democrats need to talk like normal people" tour. The argumentative comeback, op-ed by op-ed.',
     bio_long:
       'Rahm Emanuel served as a House Democratic Caucus chair, Barack Obama\'s first White House chief of staff, and two terms as mayor of Chicago. ' +
       'He spent the Biden administration as U.S. ambassador to Japan, leading the deepening U.S.-Japan-Korea trilateral and the Camp David summit framework. ' +
@@ -1011,7 +1201,12 @@ window.EXTENDED_CANDIDATES = [
     name: 'Gina Raimondo',
     party: 'D',
     role: 'Former U.S. Secretary of Commerce',
-    hook: 'Former Rhode Island governor who ran the CHIPS Act rollout and is now a donor-class 2028 favorite.',
+    resume: [
+      'U.S. Secretary of Commerce (2021–2025)',
+      'Governor of Rhode Island (2015–2021)',
+      'Co-founder, Point Judith Capital VC (2000–2010)',
+    ],
+    hook: 'Ran the CHIPS Act and turned "industrial policy" into a brand. Donor-class darling — primary voters have no idea who she is.',
     bio_long:
       'Gina Raimondo was a venture capitalist and Rhode Island state treasurer before winning the governorship in 2014, where she pushed a state-level free community-college program. ' +
       'As Joe Biden\'s commerce secretary she became the public face of the $52B CHIPS Act semiconductor program, sitting in on chip-fab announcements and managing China export-control disputes. ' +
@@ -1037,7 +1232,12 @@ window.EXTENDED_CANDIDATES = [
     name: 'Mitch Landrieu',
     party: 'D',
     role: 'Former White House Senior Adviser for Infrastructure',
-    hook: 'Former New Orleans mayor who ran the federal infrastructure-law rollout and weighs a Southern-Democrat run.',
+    resume: [
+      'Senior Adviser, White House Infrastructure (2021–2024)',
+      'Mayor of New Orleans (2010–2018)',
+      'Lieutenant Governor of Louisiana (2004–2010)',
+    ],
+    hook: 'Took down four Confederate monuments and gave a speech that won the JFK Profile in Courage. Southern Democrat betting the party still has a Southern path.',
     bio_long:
       'Mitch Landrieu served two terms as mayor of New Orleans and rose to national prominence after his 2017 speech on the removal of Confederate monuments. ' +
       'He served as Joe Biden\'s senior adviser overseeing the rollout of the $1.2T bipartisan infrastructure law, traveling to all 50 states to publicize specific project awards. ' +
