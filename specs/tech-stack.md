@@ -17,8 +17,8 @@ or Neon is the planned escape hatch if we outgrow D1.
 | Anti-abuse   | none                             | Cloudflare Turnstile + Workers KV       | Invisible captcha + per-IP daily rate limiter.   |
 | Analytics    | GitHub native traffic counter    | Cloudflare Web Analytics                | Cookieless, no fingerprinting.                   |
 | Local dev    | `python3 -m http.server`         | Wrangler + Miniflare                    | Static now; first-party Workers/D1 sim later.    |
-| CI/CD        | GH Pages auto-deploy on `main`   | GitHub Actions → `wrangler deploy`      | Automatic deploy on `main` in both phases.       |
-| Secrets      | n/a (static)                     | Wrangler secrets + GH Actions vars      | Turnstile secret key, daily IP-hash salt.        |
+| CI/CD        | GH Pages auto-deploy on `main`   | Cloudflare "Connect Git" on `main`      | Native CF git integration; no GH Actions.        |
+| Secrets      | n/a (static)                     | Wrangler secrets (TURNSTILE / SALT)     | Set via `wrangler secret put`; not stored in CI. |
 
 ## Frontend
 
@@ -69,8 +69,6 @@ LICENSE, README.md, .gitignore
   0001_init.sql
   ...
 /specs                # mission, tech-stack, roadmap
-.github/workflows/
-  deploy.yml
 ```
 
 The Phase-1 restructure moves the static files into `/web` and stands

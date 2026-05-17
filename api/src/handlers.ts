@@ -231,7 +231,7 @@ export async function handleElo(
     return badRequest('invalid_limit', origin);
   }
 
-  const minN = Number(env.ELO_MIN_N ?? '20') || 20;
+  const minN = env.ELO_MIN_N ? parseInt(env.ELO_MIN_N, 10) : 20;
 
   interface Row { candidate_id: string; elo: number; rd: number; n_ballots: number; }
 
@@ -241,7 +241,7 @@ export async function handleElo(
       // Weighted average ELO across countries: Σ(elo · n) / Σ(n).
       const res = await env.DB.prepare(`
         SELECT candidate_id,
-               SUM(elo * n_ballots) * 1.0 / NULLIF(SUM(n_ballots), 0) AS elo,
+               SUM(elo * n_ballots) * 1.0 / SUM(n_ballots) AS elo,
                MIN(rd) AS rd,
                SUM(n_ballots) AS n_ballots
         FROM candidate_country_elo
@@ -258,14 +258,18 @@ export async function handleElo(
       rows = res.results;
     }
 
+    // Single filter: PARTY_OF gates both unknown-id rejection and the
+    // party query param (when not 'all').
     const filtered = rows
-      .filter(r => PARTY_OF[r.candidate_id] !== undefined)
-      .filter(r => party === 'all' || PARTY_OF[r.candidate_id] === party)
+      .filter(r => {
+        const p = PARTY_OF[r.candidate_id];
+        return p !== undefined && (party === 'all' || p === party);
+      })
       .map(r => ({
         id: r.candidate_id,
-        elo: Number(r.elo) || RATING_INIT,
-        rd: Number(r.rd) || RD_INIT,
-        n_ballots: Number(r.n_ballots) || 0,
+        elo: r.elo,
+        rd: r.rd,
+        n_ballots: r.n_ballots,
         party: PARTY_OF[r.candidate_id],
       }))
       .sort((a, b) => b.elo - a.elo)
@@ -314,18 +318,12 @@ export async function handleStats(
     `).bind(key);
     const [localRes, globalRes] = await env.DB.batch<CountRow>([localQuery, globalQuery]);
 
+    // pair_key WHERE clause restricts picked_id to {a, b}; POST /api/vote
+    // validates picked ∈ {a, b} before insert, so no further guard needed.
     const local: Record<string, number> = { [a]: 0, [b]: 0 };
-    for (const row of localRes.results) {
-      if (row.picked_id === a || row.picked_id === b) {
-        local[row.picked_id] = Number(row.votes) || 0;
-      }
-    }
+    for (const row of localRes.results) local[row.picked_id] = row.votes;
     const global: Record<string, number> = { [a]: 0, [b]: 0 };
-    for (const row of globalRes.results) {
-      if (row.picked_id === a || row.picked_id === b) {
-        global[row.picked_id] = Number(row.votes) || 0;
-      }
-    }
+    for (const row of globalRes.results) global[row.picked_id] = row.votes;
 
     return json({
       country,
@@ -537,7 +535,7 @@ export async function handleComparison(
   }
 }
 
-// ----- GET /api/og/:ballot_id (Phase 6) ------------------------------
+// ----- GET /api/og/:ballot_id ----------------------------------------
 //
 // Returns a 1200×630 SVG poster of a ballot, suitable as an OpenGraph
 // preview. Inline SVG dodges the no-headless-Chrome limitation of
@@ -646,7 +644,7 @@ function corsHeadersForImage(origin: string | null): Record<string, string> {
   };
 }
 
-// ----- Admin endpoints (Phase 5) -------------------------------------
+// ----- Admin endpoints -----------------------------------------------
 //
 // Bearer-token gated. If ADMIN_TOKEN isn't set on the deployed Worker,
 // all admin endpoints return 503 — fail-closed so a misconfigured prod

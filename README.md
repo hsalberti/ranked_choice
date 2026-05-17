@@ -120,23 +120,17 @@ curl https://ranked-choice-api.<your-subdomain>.workers.dev/api/health
 If the deployed Worker name isn't `ranked-choice-api.bardeus.workers.dev`,
 update the prod URL constant in `app.js` (`API_BASE_URL` derivation).
 
-### CI deployment
+### Continuous deployment
 
-`.github/workflows/deploy.yml` runs `wrangler deploy` + applies any
-pending D1 migrations on every push to `main` that touches `api/`,
-`migrations/`, or the workflow itself.
+The Cloudflare dashboard "Connect Git" feature watches `main` and
+re-runs `wrangler deploy` + `wrangler d1 migrations apply --remote` on
+every push that touches `api/` or `migrations/`. Set this up once
+under **Workers & Pages → ranked-choice-api → Settings → Build**;
+after that, no GitHub Actions secrets or workflow files are needed.
 
-```bash
-# Create a scoped Cloudflare API token at:
-#   https://dash.cloudflare.com/profile/api-tokens
-# Template: "Edit Cloudflare Workers" (or custom: Workers Scripts:Edit,
-# D1:Edit, Workers KV Storage:Edit on the account).
+Frontend deploys analogously through Cloudflare Pages' git integration.
 
-gh secret set CLOUDFLARE_API_TOKEN
-gh secret set CLOUDFLARE_ACCOUNT_ID   # 32-char hex from the dashboard sidebar
-```
-
-### Phase 5 — Turnstile + KV (much later)
+### Turnstile + KV (optional anti-abuse hardening)
 
 ```bash
 wrangler kv namespace create RATE_LIMIT   # paste id into wrangler.toml

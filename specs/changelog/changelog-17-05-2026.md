@@ -72,9 +72,9 @@ and a CI smoke test step.
   `GET /api/og/:ballot_id` returns a 1200×630 SVG poster, cached at
   the edge. Default + dynamic `og:image` meta tags in `index.html`,
   with JS rewriting the dynamic URL when opening a friend deep
-  link. CI smoke test step in `.github/workflows/deploy.yml` curls
-  `/api/health`, `/api/stats`, `/api/leaderboard/BR` after each
-  deploy and fails the workflow on schema regressions.
+  link. Manual smoke test via `scripts/test_api.sh` covers
+  `/api/health`, `/api/stats`, `/api/leaderboard/BR` and the rest of
+  the surface — gates the release rather than the deploy.
 
 ### Spec amendments
 
@@ -87,8 +87,7 @@ Nothing this run.
 ### Deferred
 
 - Phase 5: Turnstile site key + KV namespace creation (CF dashboard).
-- Phase 6: Cloudflare Web Analytics beacon token, Logpush to R2,
-  Lighthouse CI workflow.
+- Phase 6: Cloudflare Web Analytics beacon token, Logpush to R2.
 - Phase 7 (Beyond MVP) still parked until demand signal.
 
 ## v1.1 → v1.2 verification helper
@@ -105,10 +104,10 @@ admin auth, routing) in one shot.
    `api/wrangler.toml` under `[[d1_databases]] database_id`
 3. `wrangler d1 migrations apply ranked-choice-db --remote`
 4. `wrangler deploy` → note the resulting `*.workers.dev` URL; if it
-   doesn't match `ranked-choice-api.alberti-rick.workers.dev`, update
-   the prod constant in `app.js` `API_BASE_URL` and commit
-5. `gh secret set CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` so
-   CI redeploys on push
+   doesn't match `ranked-choice-api.bardeus.workers.dev`, update the
+   prod constant in `app.js` `API_BASE_URL` and commit.
+5. Set up Cloudflare "Connect Git" on the Worker for auto-redeploy on
+   push to `main` (Workers & Pages → Settings → Build).
 
 ---
 

@@ -52,11 +52,11 @@
     });
   }
 
-  // ---- Phase 5: Turnstile token capture ------------------------------
-  // Optional. The frontend reads a <meta name="turnstile-sitekey"> tag.
-  // If present AND Cloudflare's Turnstile script has loaded, every
-  // mutating request gets a fresh token in the `t` field. If not set,
-  // the server gate runs in pass-through (TURNSTILE_SECRET unset).
+  // Turnstile token capture (optional).
+  // Reads <meta name="turnstile-sitekey">; if present and the
+  // Cloudflare script has loaded, every mutating request gets a fresh
+  // token in the `t` field. Server-side runs pass-through when
+  // TURNSTILE_SECRET is unset (local dev).
   const turnstileSiteKey = (() => {
     const tag = document.querySelector('meta[name="turnstile-sitekey"]');
     return tag ? tag.getAttribute('content') : null;
@@ -228,8 +228,6 @@
     const store = loadLocalVotes();
     const key = pairKey(aId, bId);
     const entry = store[key] || { [aId]: 0, [bId]: 0 };
-    entry[aId] = entry[aId] || 0;
-    entry[bId] = entry[bId] || 0;
     entry[pickedId] = (entry[pickedId] || 0) + 1;
     store[key] = entry;
     try { localStorage.setItem(STORAGE_LOCAL_VOTES, JSON.stringify(store)); } catch {}
@@ -298,23 +296,19 @@
 
   function pickNextMatchup() {
     const pool = TIER[activeTier];
-    // Tier 1, vote 1: fixed opener.
-    if (activeTier === 1 && voteHistory.length === 0) {
-      if (!DYNAMIC_OPENER && byIdAll.vance && byIdAll.newsom) {
-        return orientMatchup(byIdAll.vance, byIdAll.newsom);
-      }
-      // DYNAMIC_OPENER branch is a future-phase stub; for now fall through.
+    // Tier 1, vote 1: fixed opener. DYNAMIC_OPENER is a stub for a
+    // later phase (top-2-by-global-ELO); off for now.
+    if (activeTier === 1 && voteHistory.length === 0 && !DYNAMIC_OPENER) {
+      return orientMatchup(byIdAll.vance, byIdAll.newsom);
     }
-    // Tier 1, vote 2: hand-picked rival to the R1 winner.
+    // Tier 1, vote 2: hand-picked same-party rival to the R1 winner.
+    // R2_RIVAL only contains entries for fixed-opener winners; any
+    // other R1 winner falls through to adaptive selection.
     if (activeTier === 1 && voteHistory.length === 1) {
-      const r1WinnerId = voteHistory[0].pickedId;
-      const rivalId = R2_RIVAL[r1WinnerId];
-      if (rivalId && byIdAll[rivalId]
-          && byIdAll[rivalId].tier === 1
-          && rivalId !== r1WinnerId) {
-        return orientMatchup(byIdAll[r1WinnerId], byIdAll[rivalId]);
+      const rivalId = R2_RIVAL[voteHistory[0].pickedId];
+      if (rivalId) {
+        return orientMatchup(byIdAll[voteHistory[0].pickedId], byIdAll[rivalId]);
       }
-      // No rival mapped (e.g., DYNAMIC_OPENER produced an unmapped winner): fall through to adaptive.
     }
     // Adaptive: 70% close-rated pair, 30% random — respecting coverage floor.
     const pairs = allowedPairs(pool);
@@ -809,69 +803,6 @@
     })).then(r => r && r.ok ? r.json() : null).catch(() => null);
   }
 
-  function renderCountryLeaderboard() {
-    const host = $('#country-leaderboard-rows');
-    const wrap = $('#country-leaderboard');
-    if (!host || !wrap) return;
-    if (!API_REACHABLE) { wrap.hidden = true; return; }
-    const country = countryHint || 'BR';
-    apiFetch(`/api/leaderboard/${country}`, { method: 'GET' })
-      .then(r => r.ok ? r.json() : null)
-      .then(j => {
-        if (!j || !Array.isArray(j.top5) || j.top5.length === 0 || j.n < 1) {
-          wrap.hidden = true;
-          return;
-        }
-        wrap.hidden = false;
-        const label = $('#country-leaderboard-label');
-        if (label) {
-          label.textContent = `Top 5 in ${flagOf(country)} · ${j.n} ballot${j.n === 1 ? '' : 's'}`;
-        }
-        host.innerHTML = j.top5.map((row, i) => {
-          const c = byIdAll[row.id];
-          if (!c) return '';
-          return `
-            <div class="rank-row" data-cid="${row.id}" role="button" tabindex="0" aria-label="More about ${escapeHtml(c.name)}">
-              <div class="rank-num">${i + 1}</div>
-              ${avatarHtml(c, 'sm')}
-              <div class="rank-info">
-                <div class="rank-name">
-                  <span>${escapeHtml(c.name)}</span>
-                  <span class="party-chip party-${c.party}"><span class="dot"></span>${c.party}</span>
-                </div>
-                <div class="rank-role">${escapeHtml(c.role)}</div>
-              </div>
-            </div>`;
-        }).join('');
-      })
-      .catch(() => { wrap.hidden = true; });
-  }
-
-  function renderCountryComparison(top5) {
-    const wrap = $('#country-comparison');
-    if (!wrap) return;
-    if (!API_REACHABLE) { wrap.hidden = true; return; }
-    const country = countryHint || 'BR';
-    apiFetch(`/api/comparison/${country}`, { method: 'GET' })
-      .then(r => r.ok ? r.json() : null)
-      .then(j => {
-        if (!j || !Array.isArray(j.country_top5) || j.country_total < 1) {
-          wrap.hidden = true;
-          return;
-        }
-        const ownIds = new Set(top5.map(r => r.c.id));
-        const countryIds = new Set(j.country_top5.map(c => c.id));
-        const overlap = [...ownIds].filter(id => countryIds.has(id));
-        wrap.hidden = false;
-        const note = $('#country-comparison-note');
-        if (note) {
-          note.textContent = `Agree with ${flagOf(country)} on ${overlap.length}/5 picks`
-            + (overlap.length === 0 ? ' — total split.' : '.');
-        }
-      })
-      .catch(() => { wrap.hidden = true; });
-  }
-
   function flagOf(cc) {
     if (!/^[A-Z]{2}$/.test(cc)) return cc;
     const A = 0x1F1E6;
@@ -1347,7 +1278,6 @@
     e.preventDefault();
     toast('Built for fun. No data leaves your phone.');
   });
-  // Stats screen wiring (button added in Phase D/E).
   const openStatsBtn = $('#open-stats-btn');
   if (openStatsBtn) openStatsBtn.addEventListener('click', () => {
     show('stats');
@@ -1406,10 +1336,9 @@
     }
   });
 
-  // Phase 6: update og:image to the per-ballot OG render when a deep
-  // link with `?b=<id>` is opened. Social-platform crawlers don't run
-  // JS so they'll see the static fallback, but Discord/Slack JS-side
-  // previews pick up the rewrite.
+  // Rewrite og:image to the per-ballot OG render when a deep link with
+  // `?b=<id>` opens. Static crawlers see the fallback meta tag; JS-side
+  // previewers (Discord/Slack) pick up this rewrite.
   (function updateOgImage() {
     const u = new URL(window.location.href);
     const b = u.searchParams.get('b');

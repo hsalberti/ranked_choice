@@ -807,24 +807,7 @@ button {
   flex-wrap: wrap;
 }
 
-.toggle-full {
-  margin: 18px auto 0;
-  text-align: center;
-}
-.toggle-full button {
-  font-size: 13px;
-  color: var(--text-muted);
-  padding: 8px 14px;
-  border-radius: 99px;
-  border: 1px solid var(--border);
-  transition: color var(--transition), border-color var(--transition);
-}
-.toggle-full button:hover { color: var(--text); }
-
-.full-ranking { display: none; margin-top: 14px; }
-.full-ranking.show { display: block; }
-
-/* Keep-ranking CTA (opt-in to extended round) */
+/* Keep-voting CTA (tier-progression on results screen) */
 .keep-ranking {
   margin: 20px auto 4px;
   text-align: center;
@@ -836,33 +819,6 @@ button {
 .keep-ranking button {
   width: auto;
   min-width: 200px;
-}
-.keep-ranking-blurb {
-  margin: 10px auto 0;
-  font-size: 13px;
-  color: var(--text-muted);
-  max-width: 36ch;
-  line-height: 1.45;
-}
-
-/* Extended (long-tail) ranking results */
-.extended-ranking {
-  margin: 22px 0 8px;
-  padding-top: 18px;
-  border-top: 1px solid var(--border);
-}
-.extended-label {
-  font-size: 12px;
-  letter-spacing: .14em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  font-weight: 600;
-  margin-bottom: 10px;
-}
-.extended-rows {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
 }
 
 /* Footer */
@@ -1045,8 +1001,7 @@ button {
   .share-preview { font-size: 14px; padding: 16px 18px; }
   .share-actions .cta { font-size: 15.5px; padding: 13px 20px; }
 
-  /* Extended ranking & detail sheet */
-  .extended-ranking { margin-top: 28px; padding-top: 22px; }
+  /* Detail sheet */
   .detail-sheet-panel { width: min(640px, 100%); padding: 22px 24px 28px; }
 }
 
@@ -1079,8 +1034,7 @@ button {
   .card-inner { transition: none !important; }
 }
 
-/* Country badge on start screen + leaderboard on results screen — added
-   in Phase 2-4 frontend hookup. */
+/* Country badge under the start-screen hero. */
 .country-badge {
   margin: 14px auto 0;
   display: inline-flex;
@@ -1092,22 +1046,6 @@ button {
   background: var(--surface-2);
   border-radius: 99px;
   padding: 4px 12px;
-}
-
-.country-leaderboard {
-  margin: 22px 0 8px;
-  padding: 18px;
-  background: var(--surface-2);
-  border-radius: var(--radius);
-  border: 1px dashed var(--border);
-}
-.country-leaderboard .extended-rows {
-  margin-top: 10px;
-}
-.country-comparison-note {
-  margin: 14px 2px 0;
-  font-size: 13px;
-  color: var(--text-muted);
 }
 
 /* ─── v2 (smart-matchups-crowd-elo) ──────────────────────────────── */

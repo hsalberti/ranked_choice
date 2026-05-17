@@ -13,8 +13,8 @@ main = "src/index.ts"
 compatibility_date = "2026-05-17"
 compatibility_flags = ["nodejs_compat_v2"]
 
-# account_id is read from CLOUDFLARE_ACCOUNT_ID env var (set as a GH
-# Actions secret + locally via `wrangler login`).
+# account_id is read from CLOUDFLARE_ACCOUNT_ID env var locally (set
+# by `wrangler login`); Cloudflare's git integration injects it on CI.
 # account_id = "..."
 
 # Once the custom domain is on Cloudflare DNS, attach a Worker route:

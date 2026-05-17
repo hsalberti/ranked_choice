@@ -95,7 +95,7 @@ export default {
       return methodNotAllowed(origin, 'GET');
     }
 
-    // /api/og/:ballot_id  — Phase 6 OG image (SVG)
+    // /api/og/:ballot_id  — OG image (SVG) for share-link previews
     const ogMatch = /^\/api\/og\/([0-9a-z]{4,32})$/.exec(path);
     if (ogMatch) {
       if (method === 'GET') return handleOgImage(request, env, origin, ogMatch[1]);

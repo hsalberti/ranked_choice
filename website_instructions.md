@@ -114,23 +114,16 @@ The Worker's CORS allow-list already includes
 `https://2028ballot.almaintel.com`, so the frontend can call it from
 the custom domain.
 
-## Step 6 — GitHub Action secrets (so future pushes auto-deploy the Worker)
+## Step 6 — Continuous deployment via Cloudflare "Connect Git"
 
-```bash
-gh secret set CLOUDFLARE_API_TOKEN
-# Paste a token created at https://dash.cloudflare.com/profile/api-tokens
-# — use the "Edit Cloudflare Workers" template, or a custom token with
-#   Workers Scripts:Edit, D1:Edit, Workers KV Storage:Edit on the account.
+In the Cloudflare dashboard, open **Workers & Pages → ranked-choice-api
+→ Settings → Build & Deploy → Connect Git** and point it at this repo
++ `main`. Set the build directory to `api/`. Cloudflare will run
+`wrangler deploy` and apply pending D1 migrations on every push that
+touches `api/` or `migrations/`.
 
-gh secret set CLOUDFLARE_ACCOUNT_ID
-# Paste the 32-char hex Account ID from the Cloudflare dashboard
-# sidebar (Workers & Pages overview page).
-```
-
-After that, every push to `main` that changes anything under `api/`,
-`migrations/`, or the workflow itself will redeploy the Worker
-automatically. Cloudflare Pages handles the frontend on every push
-without needing this secret.
+Frontend (Cloudflare Pages) uses the same git integration — no
+GitHub Actions, no API tokens to manage.
 
 ---
 
