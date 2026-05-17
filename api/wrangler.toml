@@ -25,6 +25,12 @@ compatibility_flags = ["nodejs_compat_v2"]
 [observability]
 enabled = true
 
+# ----- Vars ----------------------------------------------------------
+# v2 (smart-matchups-crowd-elo): minimum n_ballots per (candidate, country)
+# before a row shows in a country-specific /api/elo response.
+[vars]
+ELO_MIN_N = "20"
+
 # ----- D1 (Phase 1.5+/2+) --------------------------------------------
 # `wrangler dev` uses a local SQLite file under .wrangler/ until you
 # pair this binding to a real D1. Production needs:
@@ -33,7 +39,7 @@ enabled = true
 [[d1_databases]]
 binding        = "DB"
 database_name  = "ranked-choice-db"
-database_id    = "ranked-choice-db-local"
+database_id    = "3a00af8f-6b6e-451b-90c2-c34736da24ff"
 migrations_dir = "../migrations"
 
 # ----- KV (Phase 5) --------------------------------------------------

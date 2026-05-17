@@ -180,6 +180,14 @@ wrangler d1 execute ranked-choice-db --remote --command \
 # Country leaderboard, raw:
 wrangler d1 execute ranked-choice-db --remote --command \
   "SELECT * FROM candidate_country_score WHERE country='BR' ORDER BY weighted DESC LIMIT 5;"
+
+# v2 — crowd ELO per country (min 20 ballots, default ELO_MIN_N):
+wrangler d1 execute ranked-choice-db --remote --command \
+  "SELECT candidate_id, ROUND(elo) elo, ROUND(rd) rd, n_ballots FROM candidate_country_elo WHERE country='BR' AND n_ballots >= 20 ORDER BY elo DESC LIMIT 15;"
+
+# v2 — global aggregated ELO (n_ballots-weighted across countries):
+wrangler d1 execute ranked-choice-db --remote --command \
+  "SELECT candidate_id, ROUND(SUM(elo*n_ballots)*1.0/SUM(n_ballots)) elo, SUM(n_ballots) total FROM candidate_country_elo WHERE n_ballots > 0 GROUP BY candidate_id ORDER BY elo DESC LIMIT 15;"
 ```
 
 ---

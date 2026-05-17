@@ -1,7 +1,8 @@
-// 25 potential 2028 presidential candidates.
+// 40 potential 2028 presidential candidates, split across three tiers.
 // Roles reflect their most relevant/recent public position as of 2026.
 //
 // Per candidate:
+//   tier       — 1 = top cohort (15), 2 = "keep voting" (12), 3 = long tail (13)
 //   hook       — punchy one-line front-card label (≤120 chars)
 //   bio_long   — neutral 2-3 short paragraphs for the back of the card
 //   storyline  — the "2028 angle" framing (1 short paragraph)
@@ -9,13 +10,26 @@
 //   moment     — one notable moment, accomplishment, or quote
 //   links      — { twitter, wikipedia } — full URLs; null when none
 //
+// The two pool arrays below are legacy: app.js partitions by `tier`, not
+// by pool membership. `trumpjr` and `pritzker` live in EXTENDED_CANDIDATES
+// physically but are tagged tier:1 (promoted by the v2 roadmap).
+//
 // Twitter/Wikipedia URLs are best-effort and should be verified before
 // production deploy.
+
+// Round-2 hand-picked rival map. R1 is always Vance vs. Newsom; whichever
+// they pick, R2 pits them against this same-party rival. R3+ is adaptive.
+window.R2_RIVAL = {
+  vance:  'rubio',
+  newsom: 'aoc',
+};
+
 window.CANDIDATES = [
   {
     id: 'ramaswamy',
     name: 'Vivek Ramaswamy',
     party: 'R',
+    tier: 2,
     role: 'Governor of Ohio',
     born: '1985-08-09',
     resume: [
@@ -48,6 +62,7 @@ window.CANDIDATES = [
     id: 'booker',
     name: 'Cory Booker',
     party: 'D',
+    tier: 1,
     role: 'U.S. Senator from New Jersey',
     born: '1969-04-27',
     resume: [
@@ -80,6 +95,7 @@ window.CANDIDATES = [
     id: 'desantis',
     name: 'Ron DeSantis',
     party: 'R',
+    tier: 1,
     role: 'Governor of Florida',
     born: '1978-09-14',
     resume: [
@@ -112,6 +128,7 @@ window.CANDIDATES = [
     id: 'buttigieg',
     name: 'Pete Buttigieg',
     party: 'D',
+    tier: 1,
     role: 'Former U.S. Secretary of Transportation',
     born: '1982-01-19',
     resume: [
@@ -144,6 +161,7 @@ window.CANDIDATES = [
     id: 'scott',
     name: 'Tim Scott',
     party: 'R',
+    tier: 2,
     role: 'U.S. Senator from South Carolina',
     born: '1965-09-19',
     resume: [
@@ -176,6 +194,7 @@ window.CANDIDATES = [
     id: 'ossoff',
     name: 'Jon Ossoff',
     party: 'D',
+    tier: 2,
     role: 'U.S. Senator from Georgia',
     born: '1987-02-16',
     resume: [
@@ -208,6 +227,7 @@ window.CANDIDATES = [
     id: 'rfk',
     name: 'Robert F. Kennedy Jr.',
     party: 'I',
+    tier: 1,
     role: 'U.S. Secretary of Health & Human Services',
     born: '1954-01-17',
     resume: [
@@ -240,6 +260,7 @@ window.CANDIDATES = [
     id: 'cuban',
     name: 'Mark Cuban',
     party: 'I',
+    tier: 2,
     role: 'Entrepreneur and investor',
     born: '1958-07-31',
     resume: [
@@ -272,6 +293,7 @@ window.CANDIDATES = [
     id: 'carlson',
     name: 'Tucker Carlson',
     party: 'R',
+    tier: 1,
     role: 'Independent media commentator',
     born: '1969-05-16',
     resume: [
@@ -304,6 +326,7 @@ window.CANDIDATES = [
     id: 'stefanik',
     name: 'Elise Stefanik',
     party: 'R',
+    tier: 2,
     role: 'Governor of New York',
     born: '1984-07-02',
     resume: [
@@ -336,6 +359,7 @@ window.CANDIDATES = [
     id: 'mace',
     name: 'Nancy Mace',
     party: 'R',
+    tier: 2,
     role: 'U.S. Representative from South Carolina',
     born: '1977-12-04',
     resume: [
@@ -368,6 +392,7 @@ window.CANDIDATES = [
     id: 'aoc',
     name: 'Alexandria Ocasio-Cortez',
     party: 'D',
+    tier: 1,
     role: 'U.S. Representative from New York',
     born: '1989-10-13',
     resume: [
@@ -400,6 +425,7 @@ window.CANDIDATES = [
     id: 'vance',
     name: 'J.D. Vance',
     party: 'R',
+    tier: 1,
     role: 'Vice President of the United States',
     born: '1984-08-02',
     resume: [
@@ -432,6 +458,7 @@ window.CANDIDATES = [
     id: 'newsom',
     name: 'Gavin Newsom',
     party: 'D',
+    tier: 1,
     role: 'Governor of California',
     born: '1967-10-10',
     resume: [
@@ -464,6 +491,7 @@ window.CANDIDATES = [
     id: 'gaetz',
     name: 'Matt Gaetz',
     party: 'R',
+    tier: 2,
     role: 'Conservative commentator',
     born: '1982-05-07',
     resume: [
@@ -496,6 +524,7 @@ window.CANDIDATES = [
     id: 'talarico',
     name: 'James Talarico',
     party: 'D',
+    tier: 2,
     role: 'Texas State Representative',
     born: '1989-09-24',
     resume: [
@@ -528,6 +557,7 @@ window.CANDIDATES = [
     id: 'rubio',
     name: 'Marco Rubio',
     party: 'R',
+    tier: 1,
     role: 'U.S. Secretary of State',
     born: '1971-05-28',
     resume: [
@@ -560,6 +590,7 @@ window.CANDIDATES = [
     id: 'harris',
     name: 'Kamala Harris',
     party: 'D',
+    tier: 1,
     role: 'Former Vice President',
     born: '1964-10-20',
     resume: [
@@ -592,6 +623,7 @@ window.CANDIDATES = [
     id: 'hegseth',
     name: 'Pete Hegseth',
     party: 'R',
+    tier: 2,
     role: 'U.S. Secretary of Defense',
     born: '1980-06-06',
     resume: [
@@ -624,6 +656,7 @@ window.CANDIDATES = [
     id: 'moore',
     name: 'Wes Moore',
     party: 'D',
+    tier: 1,
     role: 'Governor of Maryland',
     born: '1978-10-15',
     resume: [
@@ -656,6 +689,7 @@ window.CANDIDATES = [
     id: 'cruz',
     name: 'Ted Cruz',
     party: 'R',
+    tier: 1,
     role: 'U.S. Senator from Texas',
     born: '1970-12-22',
     resume: [
@@ -688,6 +722,7 @@ window.CANDIDATES = [
     id: 'shapiro',
     name: 'Josh Shapiro',
     party: 'D',
+    tier: 1,
     role: 'Governor of Pennsylvania',
     born: '1973-06-20',
     resume: [
@@ -720,6 +755,7 @@ window.CANDIDATES = [
     id: 'greene',
     name: 'Marjorie Taylor Greene',
     party: 'R',
+    tier: 2,
     role: 'U.S. Representative from Georgia',
     born: '1974-05-27',
     resume: [
@@ -752,6 +788,7 @@ window.CANDIDATES = [
     id: 'klobuchar',
     name: 'Amy Klobuchar',
     party: 'D',
+    tier: 2,
     role: 'U.S. Senator from Minnesota',
     born: '1960-05-25',
     resume: [
@@ -784,6 +821,7 @@ window.CANDIDATES = [
     id: 'bannon',
     name: 'Steve Bannon',
     party: 'R',
+    tier: 2,
     role: 'Host of War Room',
     born: '1953-11-27',
     resume: [
@@ -822,6 +860,7 @@ window.EXTENDED_CANDIDATES = [
     id: 'pritzker',
     name: 'J.B. Pritzker',
     party: 'D',
+    tier: 1,
     role: 'Governor of Illinois',
     born: '1965-01-19',
     resume: [
@@ -854,6 +893,7 @@ window.EXTENDED_CANDIDATES = [
     id: 'sanders_sh',
     name: 'Sarah Huckabee Sanders',
     party: 'R',
+    tier: 3,
     role: 'Governor of Arkansas',
     born: '1982-08-13',
     resume: [
@@ -886,6 +926,7 @@ window.EXTENDED_CANDIDATES = [
     id: 'abbott',
     name: 'Greg Abbott',
     party: 'R',
+    tier: 3,
     role: 'Governor of Texas',
     born: '1957-11-13',
     resume: [
@@ -918,6 +959,7 @@ window.EXTENDED_CANDIDATES = [
     id: 'kemp',
     name: 'Brian Kemp',
     party: 'R',
+    tier: 3,
     role: 'Governor of Georgia',
     born: '1963-11-02',
     resume: [
@@ -950,6 +992,7 @@ window.EXTENDED_CANDIDATES = [
     id: 'youngkin',
     name: 'Glenn Youngkin',
     party: 'R',
+    tier: 3,
     role: 'Former Governor of Virginia',
     born: '1966-12-09',
     resume: [
@@ -982,6 +1025,7 @@ window.EXTENDED_CANDIDATES = [
     id: 'burgum',
     name: 'Doug Burgum',
     party: 'R',
+    tier: 3,
     role: 'U.S. Secretary of the Interior',
     born: '1956-08-01',
     resume: [
@@ -1014,6 +1058,7 @@ window.EXTENDED_CANDIDATES = [
     id: 'gabbard',
     name: 'Tulsi Gabbard',
     party: 'R',
+    tier: 3,
     role: 'Director of National Intelligence',
     born: '1981-04-12',
     resume: [
@@ -1046,6 +1091,7 @@ window.EXTENDED_CANDIDATES = [
     id: 'paul',
     name: 'Rand Paul',
     party: 'R',
+    tier: 3,
     role: 'U.S. Senator from Kentucky',
     born: '1963-01-07',
     resume: [
@@ -1078,6 +1124,7 @@ window.EXTENDED_CANDIDATES = [
     id: 'kelly',
     name: 'Mark Kelly',
     party: 'D',
+    tier: 3,
     role: 'U.S. Senator from Arizona',
     born: '1964-02-21',
     resume: [
@@ -1110,6 +1157,7 @@ window.EXTENDED_CANDIDATES = [
     id: 'vanhollen',
     name: 'Chris Van Hollen',
     party: 'D',
+    tier: 3,
     role: 'U.S. Senator from Maryland',
     born: '1959-01-10',
     resume: [
@@ -1142,6 +1190,7 @@ window.EXTENDED_CANDIDATES = [
     id: 'smith_sa',
     name: 'Stephen A. Smith',
     party: 'D',
+    tier: 3,
     role: 'ESPN host and commentator',
     born: '1967-10-14',
     resume: [
@@ -1174,6 +1223,7 @@ window.EXTENDED_CANDIDATES = [
     id: 'trumpjr',
     name: 'Donald Trump Jr.',
     party: 'R',
+    tier: 1,
     role: 'Executive Vice President, The Trump Organization',
     born: '1977-12-31',
     resume: [
@@ -1206,6 +1256,7 @@ window.EXTENDED_CANDIDATES = [
     id: 'emanuel',
     name: 'Rahm Emanuel',
     party: 'D',
+    tier: 3,
     role: 'Former U.S. Ambassador to Japan',
     born: '1959-11-29',
     resume: [
@@ -1238,6 +1289,7 @@ window.EXTENDED_CANDIDATES = [
     id: 'raimondo',
     name: 'Gina Raimondo',
     party: 'D',
+    tier: 3,
     role: 'Former U.S. Secretary of Commerce',
     born: '1971-05-17',
     resume: [
@@ -1270,6 +1322,7 @@ window.EXTENDED_CANDIDATES = [
     id: 'landrieu',
     name: 'Mitch Landrieu',
     party: 'D',
+    tier: 3,
     role: 'Former White House Senior Adviser for Infrastructure',
     born: '1960-08-16',
     resume: [

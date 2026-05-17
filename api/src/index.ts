@@ -17,6 +17,7 @@ import {
   handleBallotGet,
   handleBallotPost,
   handleComparison,
+  handleElo,
   handleEvent,
   handleHealth,
   handleLeaderboard,
@@ -58,6 +59,12 @@ export default {
     // /api/stats
     if (path === '/api/stats') {
       if (method === 'GET') return handleStats(request, env, origin);
+      return methodNotAllowed(origin, 'GET');
+    }
+
+    // /api/elo  — v2 crowd ELO leaderboard
+    if (path === '/api/elo') {
+      if (method === 'GET') return handleElo(request, env, origin);
       return methodNotAllowed(origin, 'GET');
     }
 

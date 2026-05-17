@@ -95,38 +95,55 @@
 
       <div class="podium" id="podium"></div>
 
-      <div class="country-leaderboard" id="country-leaderboard" hidden>
-        <div class="extended-label" id="country-leaderboard-label">Top 5 in your country</div>
-        <div class="extended-rows" id="country-leaderboard-rows"></div>
-        <p class="country-comparison-note" id="country-comparison-note"></p>
-      </div>
-
       <div class="share-section">
         <div class="share-preview" id="share-preview"></div>
         <div class="share-actions">
-          <button class="cta" id="share-btn">Copy & share</button>
+          <button class="cta" id="share-btn">📋 Copy ballot</button>
+          <button class="cta secondary" id="share-x-btn">🐦 Post to X</button>
           <button class="cta secondary" id="share-native-btn" hidden>Share…</button>
         </div>
       </div>
 
+      <div class="stats-cta">
+        <button class="cta tertiary" id="open-stats-btn">📊 See global stats →</button>
+      </div>
+
       <div class="keep-ranking" id="keep-ranking" hidden>
-        <button class="cta secondary" id="keep-ranking-btn">Keep ranking ↓</button>
-        <p class="keep-ranking-blurb">Politically inclined? Rank a long-tail field beyond the headline 25.</p>
+        <button class="cta secondary" id="keep-ranking-btn">Keep voting ↓</button>
       </div>
-
-      <div class="extended-ranking" id="extended-ranking" hidden>
-        <div class="extended-label">Your long-tail ranking</div>
-        <div class="extended-rows" id="extended-rows"></div>
-      </div>
-
-      <div class="toggle-full">
-        <button id="toggle-full-btn">Show full ranking ↓</button>
-      </div>
-      <div class="full-ranking" id="full-ranking"></div>
 
       <div class="results-actions">
         <button class="cta secondary" id="restart-btn">Start over</button>
       </div>
+    </section>
+
+    <!-- Stats screen — global crowd ELO, reachable only from results -->
+    <section class="screen" id="screen-stats">
+      <div class="stats-hero">
+        <button class="stats-back-btn" id="stats-back-btn" type="button" aria-label="Back to your ballot">← Back to your ballot</button>
+        <div class="label">Crowd ELO</div>
+        <h2>How everyone else is voting</h2>
+        <p id="stats-sub">Rankings derive from every pairwise vote cast — like chess.</p>
+      </div>
+
+      <div class="stats-filters" role="group" aria-label="Filters">
+        <div class="filter-row" role="radiogroup" aria-label="Country">
+          <span class="filter-label">Country</span>
+          <div class="filter-chips" id="stats-country-chips"></div>
+        </div>
+        <div class="filter-row" role="radiogroup" aria-label="Party">
+          <span class="filter-label">Party</span>
+          <div class="filter-chips" id="stats-party-chips">
+            <button class="filter-chip active" data-party="all" role="radio" aria-checked="true">All</button>
+            <button class="filter-chip" data-party="R"   role="radio" aria-checked="false">🔴 R</button>
+            <button class="filter-chip" data-party="D"   role="radio" aria-checked="false">🔵 D</button>
+            <button class="filter-chip" data-party="I"   role="radio" aria-checked="false">⚪ I</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="stats-list" id="stats-list" aria-live="polite"></div>
+      <div class="stats-empty" id="stats-empty" hidden></div>
     </section>
 
     <footer class="foot">
@@ -181,6 +198,7 @@
 
   <script src="candidates.js"></script>
   <script src="pics/manifest.js"></script>
+  <script src="lib/glicko2.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

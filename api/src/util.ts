@@ -9,6 +9,9 @@ export interface Env {
   TURNSTILE_SECRET?: string;
   DAILY_SALT?: string;
   ADMIN_TOKEN?: string;
+  // v2 (smart-matchups-crowd-elo): min ballots per (candidate, country)
+  // before a row shows in a country-specific /api/elo response. Default 20.
+  ELO_MIN_N?: string;
 }
 
 export const ALLOWED_ORIGINS: ReadonlySet<string> = new Set([

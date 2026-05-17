@@ -2,7 +2,8 @@
 // Response. The router in index.ts owns CORS preflight + method check
 // before dispatching.
 
-import { ALL_IDS, isCandidateId, isHeadlineId } from './candidates';
+import { ALL_IDS, PARTY_OF, isCandidateId } from './candidates';
+import { rateOne, RATING_INIT, RD_INIT, SIGMA_INIT } from './glicko2';
 import {
   Env,
   antiAbuseGate,
@@ -133,18 +134,147 @@ export async function handleVote(
 
   const country = countryOf(request);
   const key = pairKey(body.a, body.b);
+  const pickedId = body.picked;
+  const lostId = pickedId === body.a ? body.b : body.a;
 
   try {
-    await env.DB.prepare(`
+    // (1) Existing per-pair aggregate (powers the stats overlay).
+    const pairWrite = env.DB.prepare(`
       INSERT INTO pair_aggregates (pair_key, country, picked_id, votes)
       VALUES (?, ?, ?, 1)
       ON CONFLICT(pair_key, country, picked_id)
       DO UPDATE SET votes = votes + 1
-    `).bind(key, country, body.picked).run();
+    `).bind(key, country, pickedId);
+
+    // (2) v2: Glicko-2 update for both (candidate, country) rows.
+    // Read snapshot, apply one step, UPSERT both rows atomically.
+    const eloRows = await env.DB.prepare(`
+      SELECT candidate_id, elo, rd, sigma, n_ballots
+      FROM candidate_country_elo
+      WHERE country = ? AND candidate_id IN (?, ?)
+    `).bind(country, pickedId, lostId).all<{
+      candidate_id: string; elo: number; rd: number; sigma: number; n_ballots: number;
+    }>();
+
+    const seed = (id: string) => ({
+      candidate_id: id, elo: RATING_INIT, rd: RD_INIT, sigma: SIGMA_INIT, n_ballots: 0,
+    });
+    const byCand = new Map(eloRows.results.map(r => [r.candidate_id, r]));
+    const cur = {
+      picked: byCand.get(pickedId) ?? seed(pickedId),
+      lost:   byCand.get(lostId)   ?? seed(lostId),
+    };
+    const newPicked = rateOne(
+      { rating: cur.picked.elo, rd: cur.picked.rd, sigma: cur.picked.sigma },
+      [{ rating: cur.lost.elo, rd: cur.lost.rd }],
+      [1],
+    );
+    const newLost = rateOne(
+      { rating: cur.lost.elo, rd: cur.lost.rd, sigma: cur.lost.sigma },
+      [{ rating: cur.picked.elo, rd: cur.picked.rd }],
+      [0],
+    );
+    const now = Date.now();
+    const upsert = (id: string, r: { rating: number; rd: number; sigma: number }, n: number) =>
+      env.DB.prepare(`
+        INSERT INTO candidate_country_elo
+          (candidate_id, country, elo, rd, sigma, n_ballots, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(candidate_id, country)
+        DO UPDATE SET
+          elo = excluded.elo,
+          rd = excluded.rd,
+          sigma = excluded.sigma,
+          n_ballots = excluded.n_ballots,
+          updated_at = excluded.updated_at
+      `).bind(id, country, r.rating, r.rd, r.sigma, n, now);
+
+    await env.DB.batch([
+      pairWrite,
+      upsert(pickedId, newPicked, cur.picked.n_ballots + 1),
+      upsert(lostId,   newLost,   cur.lost.n_ballots + 1),
+    ]);
   } catch (err) {
     return serverError(String(err), origin);
   }
   return new Response(null, { status: 204 });
+}
+
+// ----- GET /api/elo --------------------------------------------------
+//
+// Query params:
+//   country   ISO-2 uppercase, or 'GLOBAL' (default)
+//   party     R | D | I | all  (default 'all')
+//   limit     1..50            (default 25)
+// Response: JSON array of { id, elo, rd, n_ballots, party }, sorted by
+// elo DESC. Country views apply a min-N filter (env.ELO_MIN_N, default 20);
+// GLOBAL aggregates across all countries (no min-N gate).
+
+const PARTY_VALUES = new Set(['R', 'D', 'I', 'all']);
+
+export async function handleElo(
+  request: Request,
+  env: Env,
+  origin: string | null,
+): Promise<Response> {
+  const url = new URL(request.url);
+  const country = (url.searchParams.get('country') || 'GLOBAL').toUpperCase();
+  const party = url.searchParams.get('party') || 'all';
+  const limitRaw = url.searchParams.get('limit');
+  const limit = limitRaw ? parseInt(limitRaw, 10) : 25;
+
+  if (country !== 'GLOBAL' && !/^[A-Z]{2}$/.test(country)) {
+    return badRequest('invalid_country', origin);
+  }
+  if (!PARTY_VALUES.has(party)) return badRequest('invalid_party', origin);
+  if (!Number.isFinite(limit) || limit < 1 || limit > 50) {
+    return badRequest('invalid_limit', origin);
+  }
+
+  const minN = Number(env.ELO_MIN_N ?? '20') || 20;
+
+  interface Row { candidate_id: string; elo: number; rd: number; n_ballots: number; }
+
+  try {
+    let rows: Row[];
+    if (country === 'GLOBAL') {
+      // Weighted average ELO across countries: Σ(elo · n) / Σ(n).
+      const res = await env.DB.prepare(`
+        SELECT candidate_id,
+               SUM(elo * n_ballots) * 1.0 / NULLIF(SUM(n_ballots), 0) AS elo,
+               MIN(rd) AS rd,
+               SUM(n_ballots) AS n_ballots
+        FROM candidate_country_elo
+        WHERE n_ballots > 0
+        GROUP BY candidate_id
+      `).all<Row>();
+      rows = res.results;
+    } else {
+      const res = await env.DB.prepare(`
+        SELECT candidate_id, elo, rd, n_ballots
+        FROM candidate_country_elo
+        WHERE country = ? AND n_ballots >= ?
+      `).bind(country, minN).all<Row>();
+      rows = res.results;
+    }
+
+    const filtered = rows
+      .filter(r => PARTY_OF[r.candidate_id] !== undefined)
+      .filter(r => party === 'all' || PARTY_OF[r.candidate_id] === party)
+      .map(r => ({
+        id: r.candidate_id,
+        elo: Number(r.elo) || RATING_INIT,
+        rd: Number(r.rd) || RD_INIT,
+        n_ballots: Number(r.n_ballots) || 0,
+        party: PARTY_OF[r.candidate_id],
+      }))
+      .sort((a, b) => b.elo - a.elo)
+      .slice(0, limit);
+
+    return json(filtered, 200, origin);
+  } catch (err) {
+    return serverError(String(err), origin);
+  }
 }
 
 // ----- GET /api/stats?a=X&b=Y ----------------------------------------
@@ -244,7 +374,9 @@ export async function handleBallotPost(
 
   const picks: string[] = [];
   for (const p of body.picks) {
-    if (!isHeadlineId(p)) return badRequest('picks_invalid_id', origin);
+    // v2: any candidate may end up in top-5, since opted-in Tier-2/3
+    // votes refine ratings that feed into the shared ranking.
+    if (!isCandidateId(p)) return badRequest('picks_invalid_id', origin);
     if (picks.includes(p)) return badRequest('picks_duplicate', origin);
     picks.push(p);
   }

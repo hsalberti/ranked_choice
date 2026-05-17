@@ -117,10 +117,12 @@ R=$(fetch -X POST -H "origin: $ORIGIN" -H "content-type: application/json" \
 ID=$(grep -oE '"id":"[^"]+"' <<<"$(body_of "$R")" | head -1 | sed 's/"id":"//;s/"//')
 [[ -n "$ID" ]] && ok "ballot returned an id ($ID)" || ng "ballot missing id"
 
-# Validation cases
+# Validation cases. v2: pick-list accepts ALL_IDS (40), so extended-pool
+# candidates like `pritzker` are now valid top-5 picks (replaced below
+# by an outright invalid id to exercise the same code path).
 for payload in '{"picks":["ramaswamy","booker"]}' \
                '{"picks":["ramaswamy","ramaswamy","vance","aoc","newsom"]}' \
-               '{"picks":["pritzker","booker","vance","aoc","newsom"]}' \
+               '{"picks":["NOTACAND","booker","vance","aoc","newsom"]}' \
                '{"picks":["ramaswamy","booker","vance","aoc","newsom"],"extended":["ramaswamy"]}'; do
   R=$(fetch -X POST -H "origin: $ORIGIN" -H "content-type: application/json" \
     -d "$payload" "$BASE/api/ballot")
@@ -159,6 +161,24 @@ hdr "Comparison"
 R=$(fetch -H "origin: $ORIGIN" "$BASE/api/comparison/BR")
 [[ $(status_of "$R") == 200 ]] && ok "GET /api/comparison/BR → 200" || ng "comparison expected 200, got $(status_of "$R")"
 grep -q '"country_top5"' <<<"$(body_of "$R")" && ok "comparison has country_top5" || ng "comparison missing country_top5"
+
+# ---------- /api/elo (v2) ----------
+hdr "Crowd ELO"
+R=$(fetch -H "origin: $ORIGIN" "$BASE/api/elo?country=GLOBAL")
+[[ $(status_of "$R") == 200 ]] && ok "GET /api/elo?country=GLOBAL → 200" || ng "elo GLOBAL expected 200, got $(status_of "$R")"
+grep -qE '^\[' <<<"$(body_of "$R")" && ok "elo returns JSON array" || ng "elo response should be a JSON array"
+
+R=$(fetch -H "origin: $ORIGIN" "$BASE/api/elo?country=US&party=R&limit=5")
+[[ $(status_of "$R") == 200 ]] && ok "GET /api/elo?country=US&party=R&limit=5 → 200" || ng "elo US/R/5 expected 200, got $(status_of "$R")"
+
+R=$(fetch -H "origin: $ORIGIN" "$BASE/api/elo?country=Brazil")
+[[ $(status_of "$R") == 400 ]] && ok "GET /api/elo?country=Brazil → 400" || ng "elo bad country should 400 (got $(status_of "$R"))"
+
+R=$(fetch -H "origin: $ORIGIN" "$BASE/api/elo?party=X")
+[[ $(status_of "$R") == 400 ]] && ok "GET /api/elo?party=X → 400" || ng "elo bad party should 400 (got $(status_of "$R"))"
+
+R=$(fetch -H "origin: $ORIGIN" "$BASE/api/elo?limit=99")
+[[ $(status_of "$R") == 400 ]] && ok "GET /api/elo?limit=99 → 400" || ng "elo bad limit should 400 (got $(status_of "$R"))"
 
 # ---------- /api/admin/* ----------
 hdr "Admin"

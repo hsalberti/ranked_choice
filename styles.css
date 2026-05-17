@@ -1107,3 +1107,173 @@ button {
   font-size: 13px;
   color: var(--text-muted);
 }
+
+/* ─── v2 (smart-matchups-crowd-elo) ──────────────────────────────── */
+
+/* Tertiary CTA — visually subordinate to the primary share button.
+   Used for the "See global stats" CTA on the results screen. */
+.cta.tertiary {
+  background: transparent;
+  color: var(--text);
+  border: 1px dashed var(--border);
+  font-weight: 500;
+}
+.cta.tertiary:hover { background: var(--surface-2); }
+
+.stats-cta {
+  margin: 18px 0 4px;
+  display: flex;
+  justify-content: center;
+}
+
+/* X-post share button keeps the .cta.secondary look but a hint of brand color. */
+#share-x-btn {
+  letter-spacing: -0.01em;
+}
+
+/* ─── Stats screen ──────────────────────────────────────────────── */
+#screen-stats { padding-bottom: 40px; }
+
+.stats-hero {
+  text-align: left;
+  padding: 4px 0 18px;
+}
+.stats-hero .label {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.stats-hero h2 {
+  margin: 0 0 6px;
+  font-size: clamp(22px, 6vw, 28px);
+  letter-spacing: -0.02em;
+}
+.stats-hero p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+.stats-back-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 6px 0;
+  cursor: pointer;
+  margin-bottom: 6px;
+}
+.stats-back-btn:hover { color: var(--text); }
+.stats-back-btn:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; border-radius: 4px; }
+
+.stats-filters {
+  margin: 4px 0 18px;
+  padding: 14px;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0;
+}
+.filter-row + .filter-row { margin-top: 10px; }
+.filter-label {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 600;
+  min-width: 64px;
+}
+.filter-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.filter-chip {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition);
+}
+.filter-chip:hover { background: var(--surface-2); }
+.filter-chip.active {
+  background: var(--text);
+  color: var(--bg);
+  border-color: var(--text);
+}
+.filter-chip:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+
+.stats-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.stats-row {
+  display: grid;
+  grid-template-columns: 32px auto 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+.stats-row:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
+.stats-row:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+.stats-rank {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-align: center;
+}
+.stats-info { min-width: 0; }
+.stats-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  flex-wrap: wrap;
+}
+.stats-meta {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.stats-note,
+.stats-loading,
+.stats-empty,
+.stats-error {
+  text-align: center;
+  padding: 18px;
+  color: var(--text-muted);
+  font-size: 14px;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  border: 1px dashed var(--border);
+  margin-top: 8px;
+}
+.stats-retry {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  padding: 4px 10px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+  margin-left: 6px;
+}
+.stats-retry:hover { background: var(--surface); }

@@ -109,3 +109,42 @@ admin auth, routing) in one shot.
    the prod constant in `app.js` `API_BASE_URL` and commit
 5. `gh secret set CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` so
    CI redeploys on push
+
+---
+
+## v2 — Smart matchups + Crowd ELO (in progress)
+
+OpenSpec change `smart-matchups-crowd-elo` applied today. Roster restructured
+into three opt-in tiers (15/12/13). Glicko-2 (Glickman 2013) replaces plain ELO;
+matchup selection now opens with Vance vs. Newsom, follows with a hand-picked
+same-party rival (Vance→Rubio, Newsom→AOC), and from R3+ runs 70% close-rated /
+30% random with a coverage floor. Tier 1 stop condition: top-5 with non-overlapping
+90% CIs OR 18-vote cap (simulation: cap binds in 100% of runs at current tuning).
+
+Backend: migration `0005_candidate_country_elo.sql`, `POST /api/vote` extended to
+incrementally update per-(candidate, country) Glicko ratings, new
+`GET /api/elo?country=XX&party=R|D|I|all&limit=N` endpoint with min-N gating
+(`ELO_MIN_N` env var, default 20). Ballot pick validation relaxed from
+`HEADLINE_IDS` (25) to `ALL_IDS` (40) so Tier-2/3 candidates can legitimately
+land in top-5.
+
+Frontend: refocused results screen on the personal ballot (top-5 + Wordle grid +
+Copy / Post-to-X / native-share buttons + "See global stats →" CTA). New
+`#screen-stats` view, reachable only from the results screen, exposes per-country
+crowd ELO with party + country filter chips. Tier-progression CTA cycles "Keep
+voting · 12 more" → "Go deeper · 13 more" → hidden.
+
+### User-side follow-ups
+- `wrangler d1 migrations apply ranked-choice-db --remote` to ship the new table.
+- `wrangler deploy` to push the Worker (new `/api/elo` endpoint + Glicko in `/api/vote`).
+- Manual smoke test: `bash scripts/test_api.sh https://ranked-choice-api.alberti-rick.workers.dev`.
+- Lighthouse re-check on mobile (target 95+ across).
+
+### Open tuning questions (deferred)
+- Stop-condition CI threshold (currently 90%). Simulation shows it never fires
+  before the 18-vote cap — consider lowering to 80% (`z=1.282`) or reducing
+  Tier-1 `topN` from 5 to 3 if we want early-stop to be meaningful.
+- `ELO_MIN_N=20` is a starting guess; revisit after a week of real traffic.
+- Adaptive 70/30 split is fine to A/B post-launch (range 0.5–0.85).
+- `DYNAMIC_OPENER` stays `false` in v1 — flip on after `candidate_country_elo`
+  has > 1000 ballots per major country and the leaderboard stabilizes.

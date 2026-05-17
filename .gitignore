@@ -1,5 +1,8 @@
 .streamlit/secrets.toml
 
+# Cloudflare Workers local dev state.
+.wrangler/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -16,7 +19,9 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# /lib intentionally not ignored — repo contains a tracked top-level
+# `lib/glicko2.js`. (Python dist artifacts in venv/ etc. stay ignored
+# by their parent paths.)
 lib64/
 parts/
 sdist/

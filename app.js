@@ -10,8 +10,19 @@
  */
 
 (function () {
-  const TOTAL_MATCHUPS = 25;
-  const K = 36; // Elo K-factor
+  // Glicko-2 defaults (Glickman 2013).
+  const RATING_INIT = 1500;
+  const RD_INIT = 350;
+  const SIGMA_INIT = 0.06;
+  const CI90 = 1.645;
+  // Per-tier stop-condition bounds.
+  const TIER_LIMITS = {
+    1: { floor: 10, cap: 18, topN: 5 },
+    2: { floor: 6,  cap: 12, topN: 3 },
+    3: { floor: 8,  cap: 15, topN: 3 },
+  };
+  const ADAPTIVE_P_CLOSE = 0.7; // 70% close-rated, 30% random after R2
+  const DYNAMIC_OPENER = false; // v1: fixed Vance vs. Newsom opener
   const STORAGE_LOCAL_VOTES = 'ballot28.localvotes.v1';
   const STORAGE_EVENTS = 'ballot28.events.v1';
 
@@ -91,45 +102,41 @@
     });
   }
 
-  const C = window.CANDIDATES;
+  // Unified candidate pool, partitioned by `tier` (set in candidates.js).
+  // The legacy `CANDIDATES` / `EXTENDED_CANDIDATES` arrays are retained
+  // so external scripts (admin tooling, fetch_portraits, etc.) keep
+  // working — but the runtime engine treats them as one pool.
+  const C  = window.CANDIDATES;
   const EC = window.EXTENDED_CANDIDATES || [];
-  const byId = Object.fromEntries(C.map(c => [c.id, c]));
-  const byIdExt = Object.fromEntries(EC.map(c => [c.id, c]));
-  const byIdAll = { ...byId, ...byIdExt };
-  const TOTAL_EXTENDED = EC.length;
+  const POOL = [...C, ...EC];
+  const byIdAll = Object.fromEntries(POOL.map(c => [c.id, c]));
+  // Back-compat for any old call site (friend-ballot inline parse, etc.).
+  const byId    = byIdAll;
+  const byIdExt = byIdAll;
+  const TIER = {
+    1: POOL.filter(c => c.tier === 1),
+    2: POOL.filter(c => c.tier === 2),
+    3: POOL.filter(c => c.tier === 3),
+  };
+  const R2_RIVAL = window.R2_RIVAL || {};
 
-  /* ---------- state ---------- */
-  const ratings = Object.fromEntries(C.map(c => [c.id, 1500]));
-  const wins = Object.fromEntries(C.map(c => [c.id, 0]));
-  const appearances = Object.fromEntries(C.map(c => [c.id, 0]));
-  let matchups = [];
-  let cursor = 0;
-  // Per-vote undo trail. Each entry captures enough state to reverse the
-  // Elo update, local-vote tally, and cursor for the previous step.
-  let voteHistory = [];
-
-  // Extended-pool parallel state, used only after the user opts into
-  // the "Keep ranking" round from the results screen.
-  const extRatings = Object.fromEntries(EC.map(c => [c.id, 1500]));
-  const extWins = Object.fromEntries(EC.map(c => [c.id, 0]));
-  const extAppearances = Object.fromEntries(EC.map(c => [c.id, 0]));
-  let extMatchups = [];
-  let extCursor = 0;
-  let mode = 'main'; // 'main' | 'extended'
-  let extendedDone = false;
-
-  /* ---------- pool accessors (mode-aware) ----------
-   * The vote/elo/render functions below read & write through these so
-   * extended mode shares the same screen and DOM without forking.
+  /* ---------- Glicko-2 state (single source of truth across tiers) ----------
+   * Ratings, RD, sigma are PRESERVED across tier transitions — opting
+   * into Tier 2/3 refines existing ratings rather than starting over.
+   * `appearances` is per-tier and reset on tier start (coverage floor is
+   * a tier-local property).
    */
-  function pRatings() { return mode === 'extended' ? extRatings : ratings; }
-  function pWins() { return mode === 'extended' ? extWins : wins; }
-  function pAppearances() { return mode === 'extended' ? extAppearances : appearances; }
-  function pMatchups() { return mode === 'extended' ? extMatchups : matchups; }
-  function pCursor() { return mode === 'extended' ? extCursor : cursor; }
-  function setCursor(n) { if (mode === 'extended') extCursor = n; else cursor = n; }
-  function pPool() { return mode === 'extended' ? EC : C; }
-  function pTotal() { return mode === 'extended' ? TOTAL_EXTENDED : TOTAL_MATCHUPS; }
+  const ratings = Object.fromEntries(POOL.map(c => [c.id, RATING_INIT]));
+  const rd      = Object.fromEntries(POOL.map(c => [c.id, RD_INIT]));
+  const sigma   = Object.fromEntries(POOL.map(c => [c.id, SIGMA_INIT]));
+  const wins    = Object.fromEntries(POOL.map(c => [c.id, 0]));
+
+  let activeTier = 1;
+  let appearances = {};       // id -> count this tier
+  let votesThisTier = 0;
+  let currentMatchup = null;  // { a, b } selected by pickNextMatchup
+  let voteHistory = [];       // for undo within a tier
+  let tierCompleted = { 1: false, 2: false, 3: false };
 
   /* ---------- helpers ---------- */
   function initials(name) {
@@ -237,38 +244,125 @@
     try { localStorage.setItem(STORAGE_LOCAL_VOTES, JSON.stringify(store)); } catch {}
   }
 
-  /* ---------- matchup generation ----------
-   * Two shuffled lists paired up; rotate to remove self-pairs so each
-   * candidate appears exactly twice.
+  /* ---------- smart matchup engine ----------
+   * Tier 1, vote 1:  fixed Vance vs. Newsom.
+   * Tier 1, vote 2:  hand-picked rival to the R1 winner (Vance→Rubio, Newsom→AOC).
+   * Otherwise:       70% close-rated pair, 30% random, with a coverage
+   *                  floor (every active-tier candidate appears once
+   *                  before any appears twice).
+   * Card side (left vs. right) is randomized.
    */
-  function buildMatchups(pool, totalCount) {
-    pool = pool || C;
-    totalCount = totalCount || TOTAL_MATCHUPS;
-    let a = shuffle(pool);
-    let b = shuffle(pool);
-    for (let i = 0; i < a.length; i++) {
-      if (a[i].id === b[i].id) {
-        const j = (i + 1) % a.length;
-        [b[i], b[j]] = [b[j], b[i]];
-        if (a[i].id === b[i].id) { // pathological 2-cycle, swap again
-          const k = (i + 2) % a.length;
-          [b[i], b[k]] = [b[k], b[i]];
-        }
-      }
-    }
-    return a.map((x, i) => ({ a: x, b: b[i] })).slice(0, totalCount);
+  function orientMatchup(a, b) {
+    return Math.random() < 0.5 ? { a, b } : { a: b, b: a };
   }
 
-  /* ---------- Elo ---------- */
-  function applyElo(winnerId, loserId) {
-    const r = pRatings(), w = pWins(), n = pAppearances();
-    const Rw = r[winnerId], Rl = r[loserId];
-    const Ew = 1 / (1 + Math.pow(10, (Rl - Rw) / 400));
-    r[winnerId] = Rw + K * (1 - Ew);
-    r[loserId]  = Rl + K * (0 - (1 - Ew));
-    w[winnerId]    += 1;
-    n[winnerId] += 1;
-    n[loserId]  += 1;
+  function allowedPairs(pool) {
+    const minN = Math.min(...pool.map(c => appearances[c.id] || 0));
+    // Coverage floor: while some candidate is unseen, only pair-in those
+    // that respect it (unseen-vs-unseen first; if only one unseen left,
+    // pair it with someone — preferring same party for engagement).
+    if (minN === 0) {
+      const unseen = pool.filter(c => (appearances[c.id] || 0) === 0);
+      const pairs = [];
+      if (unseen.length >= 2) {
+        for (let i = 0; i < unseen.length; i++) {
+          for (let j = i + 1; j < unseen.length; j++) pairs.push([unseen[i], unseen[j]]);
+        }
+        return pairs;
+      }
+      // Exactly one unseen: pair it with another candidate, preferring same party.
+      const u = unseen[0];
+      const others = pool.filter(c => c.id !== u.id);
+      const sameParty = others.filter(c => c.party === u.party);
+      const partners = sameParty.length ? sameParty : others;
+      for (const o of partners) pairs.push([u, o]);
+      return pairs;
+    }
+    // Full coverage achieved: any pair allowed.
+    const pairs = [];
+    for (let i = 0; i < pool.length; i++) {
+      for (let j = i + 1; j < pool.length; j++) pairs.push([pool[i], pool[j]]);
+    }
+    return pairs;
+  }
+
+  function pickClosestRated(pairs) {
+    let best = pairs[0];
+    let bestDelta = Infinity;
+    for (const p of pairs) {
+      const d = Math.abs(ratings[p[0].id] - ratings[p[1].id]);
+      if (d < bestDelta) { bestDelta = d; best = p; }
+    }
+    return best;
+  }
+
+  function pickNextMatchup() {
+    const pool = TIER[activeTier];
+    // Tier 1, vote 1: fixed opener.
+    if (activeTier === 1 && voteHistory.length === 0) {
+      if (!DYNAMIC_OPENER && byIdAll.vance && byIdAll.newsom) {
+        return orientMatchup(byIdAll.vance, byIdAll.newsom);
+      }
+      // DYNAMIC_OPENER branch is a future-phase stub; for now fall through.
+    }
+    // Tier 1, vote 2: hand-picked rival to the R1 winner.
+    if (activeTier === 1 && voteHistory.length === 1) {
+      const r1WinnerId = voteHistory[0].pickedId;
+      const rivalId = R2_RIVAL[r1WinnerId];
+      if (rivalId && byIdAll[rivalId]
+          && byIdAll[rivalId].tier === 1
+          && rivalId !== r1WinnerId) {
+        return orientMatchup(byIdAll[r1WinnerId], byIdAll[rivalId]);
+      }
+      // No rival mapped (e.g., DYNAMIC_OPENER produced an unmapped winner): fall through to adaptive.
+    }
+    // Adaptive: 70% close-rated pair, 30% random — respecting coverage floor.
+    const pairs = allowedPairs(pool);
+    if (!pairs.length) {
+      // Pool too small / pathological — pair the two highest-RD candidates.
+      const sorted = pool.slice().sort((a, b) => rd[b.id] - rd[a.id]);
+      return orientMatchup(sorted[0], sorted[1] || sorted[0]);
+    }
+    const close = Math.random() < ADAPTIVE_P_CLOSE;
+    const pick = close ? pickClosestRated(pairs) : pairs[Math.floor(Math.random() * pairs.length)];
+    return orientMatchup(pick[0], pick[1]);
+  }
+
+  /* ---------- Glicko-2 update ----------
+   * One step per matchup, applied to BOTH players (each treats the
+   * other as a single same-period opponent).
+   */
+  function applyGlicko(pickedId, lostId) {
+    const G = window.Glicko2;
+    const Pp = { rating: ratings[pickedId], rd: rd[pickedId], sigma: sigma[pickedId] };
+    const Pl = { rating: ratings[lostId],   rd: rd[lostId],   sigma: sigma[lostId] };
+    const newP = G.rateOne(Pp, [{ rating: Pl.rating, rd: Pl.rd }], [1]);
+    const newL = G.rateOne(Pl, [{ rating: Pp.rating, rd: Pp.rd }], [0]);
+    ratings[pickedId] = newP.rating; rd[pickedId] = newP.rd; sigma[pickedId] = newP.sigma;
+    ratings[lostId]   = newL.rating; rd[lostId]   = newL.rd; sigma[lostId]   = newL.sigma;
+    wins[pickedId]    = (wins[pickedId] || 0) + 1;
+    appearances[pickedId] = (appearances[pickedId] || 0) + 1;
+    appearances[lostId]   = (appearances[lostId]   || 0) + 1;
+  }
+
+  /* ---------- stop condition ----------
+   * End the tier when (a) the top-N candidates have pairwise
+   * non-overlapping 90% CIs (rating ± 1.645 × RD), OR (b) the
+   * tier-specific vote cap is reached. A minimum vote floor prevents
+   * premature termination from a streaky early run.
+   */
+  function tierShouldStop() {
+    const limits = TIER_LIMITS[activeTier];
+    if (votesThisTier >= limits.cap) return true;
+    if (votesThisTier < limits.floor) return false;
+    const sorted = TIER[activeTier].slice().sort((a, b) => ratings[b.id] - ratings[a.id]);
+    const top = sorted.slice(0, limits.topN);
+    for (let i = 0; i < top.length - 1; i++) {
+      const hiNext = ratings[top[i + 1].id] + CI90 * rd[top[i + 1].id];
+      const loThis = ratings[top[i].id]     - CI90 * rd[top[i].id];
+      if (loThis <= hiNext) return false; // CIs overlap — not done yet
+    }
+    return true;
   }
 
   /* ---------- stats: simulated "crowd opinion" for a pair ---------- */
@@ -306,6 +400,7 @@
     start: $('#screen-start'),
     vote: $('#screen-vote'),
     results: $('#screen-results'),
+    stats: $('#screen-stats'),
   };
   function show(name) {
     Object.entries(screens).forEach(([k, el]) => el.classList.toggle('active', k === name));
@@ -429,34 +524,26 @@
   function renderProgress() {
     const pill = $('#progress');
     pill.hidden = false;
-    const total = pTotal();
-    const c = pCursor();
-    const labelPrefix = mode === 'extended' ? 'Round 2 · ' : '';
-    $('#progress-text').textContent = `${labelPrefix}${Math.min(c + 1, total)} / ${total}`;
-    const pct = Math.min(100, (c / total) * 100);
-    $('#progress-fill').style.width = pct + '%';
+    const { cap } = TIER_LIMITS[activeTier];
+    const labelPrefix = activeTier === 1 ? '' : (activeTier === 2 ? 'Round 2 · ' : 'Round 3 · ');
+    const shown = Math.min(votesThisTier + 1, cap);
+    $('#progress-text').textContent = `${labelPrefix}Vote ${shown} of up to ${cap}`;
+    $('#progress-fill').style.width = Math.min(100, (votesThisTier / cap) * 100) + '%';
   }
 
   function renderMatchup() {
-    const ms = pMatchups();
-    const c = pCursor();
-    if (c >= ms.length) return endOfRound();
-    const m = ms[c];
-    renderCard('a', m.a);
-    renderCard('b', m.b);
+    if (tierShouldStop()) return endOfTier();
+    currentMatchup = pickNextMatchup();
+    renderCard('a', currentMatchup.a);
+    renderCard('b', currentMatchup.b);
     renderProgress();
   }
 
-  function endOfRound() {
-    if (mode === 'extended') {
-      extendedDone = true;
-      mode = 'main';
-      $('#progress').hidden = true;
-      show('results');
-      renderExtendedRanking();
-    } else {
-      showResults();
-    }
+  function endOfTier() {
+    tierCompleted[activeTier] = true;
+    $('#progress').hidden = true;
+    show('results');
+    showResults();
   }
 
   /* ---------- card flip ---------- */
@@ -487,24 +574,26 @@
     const pickedCard = $('#card-' + pickedSlot);
     if (pickedCard && pickedCard.classList.contains('flipped')) return;
     unflipAll();
-    const m = pMatchups()[pCursor()];
+    const m = currentMatchup;
+    if (!m) return;
     const picked = pickedSlot === 'a' ? m.a : m.b;
     const lost   = pickedSlot === 'a' ? m.b : m.a;
-    // Snapshot pre-vote rating before applyElo mutates it; used by goBack().
-    const prevRatingPicked = pRatings()[picked.id];
-    const prevRatingLost   = pRatings()[lost.id];
-    applyElo(picked.id, lost.id);
+    // Snapshot pre-vote Glicko state for goBack().
+    const prev = {
+      pRating: ratings[picked.id], pRd: rd[picked.id], pSigma: sigma[picked.id],
+      lRating: ratings[lost.id],   lRd: rd[lost.id],   lSigma: sigma[lost.id],
+    };
+    applyGlicko(picked.id, lost.id);
     saveLocalVote(m.a.id, m.b.id, picked.id);
-    // Fire to backend in the headline round only — extended pool votes
-    // are local-only (per specs/tech-stack.md, only top-5 feeds Borda).
-    if (mode === 'main') postRemoteVote(m.a.id, m.b.id, picked.id);
+    // Tier-1 votes are sent to the backend (drives crowd ELO + pair_aggregates).
+    // Tier-2/3 stay local-only — they're refinement votes for the personal ballot.
+    if (activeTier === 1) postRemoteVote(m.a.id, m.b.id, picked.id);
     voteHistory.push({
-      type: 'vote',
-      cursor: pCursor(),
       aId: m.a.id, bId: m.b.id,
       pickedId: picked.id, lostId: lost.id,
-      prevRatingPicked, prevRatingLost,
+      prev,
     });
+    votesThisTier += 1;
     renderBackBtn();
 
     // pick animation
@@ -513,25 +602,22 @@
 
     advancing = true;
     showStatOverlay(m, picked.id, () => {
-      setCursor(pCursor() + 1);
       advancing = false;
-      if (pCursor() >= pMatchups().length) endOfRound();
-      else renderMatchup();
+      renderMatchup();
     });
   }
 
   function skip() {
     if (advancing) return;
-    voteHistory.push({ type: 'skip', cursor: pCursor() });
-    setCursor(pCursor() + 1);
-    if (pCursor() >= pMatchups().length) endOfRound();
-    else renderMatchup();
+    // Skip: drop the current matchup without applying a Glicko update,
+    // and ask the engine for a different one. Doesn't count toward votesThisTier.
+    renderMatchup();
     renderBackBtn();
   }
 
   function goBack() {
-    // If the stat overlay is still showing from the just-cast vote,
-    // cancel the pending advance — cursor hasn't moved yet.
+    // If the stat overlay is still showing from the just-cast vote, cancel
+    // the pending advance — we haven't picked the next matchup yet.
     if (advancing) {
       clearTimeout(overlayTimer);
       $('#stat-overlay').classList.remove('show');
@@ -539,17 +625,22 @@
     }
     if (!voteHistory.length) return;
     const h = voteHistory.pop();
-    if (h.type === 'vote') {
-      const r = pRatings(), w = pWins(), n = pAppearances();
-      r[h.pickedId] = h.prevRatingPicked;
-      r[h.lostId]   = h.prevRatingLost;
-      w[h.pickedId] = Math.max(0, (w[h.pickedId] || 0) - 1);
-      n[h.pickedId] = Math.max(0, (n[h.pickedId] || 0) - 1);
-      n[h.lostId]   = Math.max(0, (n[h.lostId]   || 0) - 1);
-      undoLocalVote(h.aId, h.bId, h.pickedId);
-    }
-    setCursor(h.cursor);
-    renderMatchup();
+    ratings[h.pickedId] = h.prev.pRating;
+    rd[h.pickedId]      = h.prev.pRd;
+    sigma[h.pickedId]   = h.prev.pSigma;
+    ratings[h.lostId]   = h.prev.lRating;
+    rd[h.lostId]        = h.prev.lRd;
+    sigma[h.lostId]     = h.prev.lSigma;
+    wins[h.pickedId]    = Math.max(0, (wins[h.pickedId] || 0) - 1);
+    appearances[h.pickedId] = Math.max(0, (appearances[h.pickedId] || 0) - 1);
+    appearances[h.lostId]   = Math.max(0, (appearances[h.lostId]   || 0) - 1);
+    votesThisTier = Math.max(0, votesThisTier - 1);
+    undoLocalVote(h.aId, h.bId, h.pickedId);
+    // Re-display the matchup the user came from.
+    currentMatchup = { a: byIdAll[h.aId], b: byIdAll[h.bId] };
+    renderCard('a', currentMatchup.a);
+    renderCard('b', currentMatchup.b);
+    renderProgress();
     renderBackBtn();
   }
 
@@ -602,9 +693,9 @@
     }, 1450);
 
     // Best-effort: replace the seeded estimate with real backend stats
-    // if they arrive while the overlay is still on screen. Headline
-    // round only (extended votes are local-only).
-    if (mode === 'main') {
+    // if they arrive while the overlay is still on screen. Tier 1 only
+    // (Tier 2/3 votes are local refinements, not sent to the backend).
+    if (activeTier === 1) {
       fetchRemotePairStats(m.a.id, m.b.id).then(real => {
         if (!real) return;
         if (!overlayContext) return; // overlay already dismissed
@@ -641,24 +732,28 @@
       setTimeout(() => {
         if (advancing) {
           advancing = false;
-          setCursor(pCursor() + 1);
-          if (pCursor() >= pMatchups().length) endOfRound();
-          else renderMatchup();
+          renderMatchup();
         }
       }, 150);
     }
   });
 
-  /* ---------- results ---------- */
-  function rankedList() {
-    return C.slice()
-      .map(c => ({ c, r: ratings[c.id], w: wins[c.id], n: appearances[c.id] }))
-      .sort((x, y) => y.r - x.r || y.w - x.w);
+  /* ---------- results ----------
+   * One ranking across all tiers the user has opted into. Tier 1 is
+   * always included; Tiers 2/3 are included only after the user opts in.
+   * Ranking is by Glicko rating (carried across tiers), with wins as a
+   * tiebreaker for the rare exact-rating tie.
+   */
+  function openedTiers() {
+    const ts = [1];
+    if (tierCompleted[2]) ts.push(2);
+    if (tierCompleted[3]) ts.push(3);
+    return ts;
   }
-
-  function extRankedList() {
-    return EC.slice()
-      .map(c => ({ c, r: extRatings[c.id], w: extWins[c.id], n: extAppearances[c.id] }))
+  function rankedList() {
+    const ids = openedTiers().flatMap(t => TIER[t]);
+    return ids.slice()
+      .map(c => ({ c, r: ratings[c.id], w: wins[c.id], n: appearances[c.id] || 0 }))
       .sort((x, y) => y.r - x.r || y.w - x.w);
   }
 
@@ -682,50 +777,30 @@
       </div>
     `).join('');
 
-    $('#full-ranking').innerHTML = ranked.slice(5).map((row, i) => `
-      <div class="rank-row" data-cid="${row.c.id}" role="button" tabindex="0" aria-label="More about ${escapeHtml(row.c.name)}">
-        <div class="rank-num">${i + 6}</div>
-        ${avatarHtml(row.c, 'sm')}
-        <div class="rank-info">
-          <div class="rank-name">
-            <span>${escapeHtml(row.c.name)}</span>
-            <span class="party-chip party-${row.c.party}"><span class="dot"></span>${row.c.party}</span>
-          </div>
-          <div class="rank-role">${escapeHtml(row.c.role)}</div>
-        </div>
-      </div>
-    `).join('');
-    $('#full-ranking').classList.remove('show');
-    $('#toggle-full-btn').textContent = 'Show full ranking ↓';
-
     renderShare(top5);
     renderKeepRanking();
-    renderExtendedRanking();
 
-    // Phase 3: persist the ballot server-side, then swap the share URL
-    // from `?b=ids` to `?b=<ballot_id>` (shorter + fetchable). Phase 4:
-    // pull the country leaderboard + comparison.
-    submitBallot(top5, extendedDone ? extRankedList() : null)
+    // Persist the ballot server-side, then swap the share URL from
+    // `?b=ids` to `?b=<ballot_id>` (shorter + fetchable).
+    const extended = openedTiers().length > 1 ? ranked.slice(5).map(r => r.c.id) : null;
+    submitBallot(top5, extended)
       .then(saved => {
         if (saved && saved.id) {
           serverBallotId = saved.id;
-          // Re-render share with the shorter URL.
           renderShare(top5);
         }
       })
       .catch(() => {});
-    renderCountryLeaderboard();
-    renderCountryComparison(top5);
   }
 
   /* ---------- ballot persistence + leaderboard ---------- */
   let serverBallotId = null;
-  function submitBallot(top5, extList) {
+  function submitBallot(top5, extendedIds) {
     if (!API_REACHABLE) return Promise.resolve(null);
     const picks = top5.map(r => r.c.id);
     const body = { picks };
-    if (extList && extList.length) {
-      body.extended = extList.map(r => r.c.id);
+    if (Array.isArray(extendedIds) && extendedIds.length) {
+      body.extended = extendedIds;
     }
     return withTurnstile(JSON.stringify(body)).then(b => apiFetch('/api/ballot', {
       method: 'POST',
@@ -815,58 +890,42 @@
     badge.textContent = `Voting from ${flagOf(country)} ${country}`;
   }
 
-  /* ---------- extended ranking ---------- */
+  /* ---------- tier-progression CTA ----------
+   * After Tier 1 → "Keep voting · N more" CTA (Tier 2 pool).
+   * After Tier 2 → "Go deeper · N more" CTA (Tier 3 pool).
+   * After Tier 3 → no CTA.
+   */
   function renderKeepRanking() {
     const wrap = $('#keep-ranking');
     if (!wrap) return;
-    if (EC.length === 0 || extendedDone) {
-      wrap.hidden = true;
-      return;
-    }
-    wrap.hidden = false;
     const btn = $('#keep-ranking-btn');
-    btn.textContent = `Keep ranking — ${EC.length} more candidates ↓`;
-  }
-
-  function renderExtendedRanking() {
-    const wrap = $('#extended-ranking');
-    if (!wrap) return;
-    if (!extendedDone) {
+    if (!btn) { wrap.hidden = true; return; }
+    let nextTier = 0, count = 0, label = '';
+    if (!tierCompleted[2] && TIER[2].length > 0) {
+      nextTier = 2; count = TIER[2].length;
+      label = `Keep voting · ${count} more ↓`;
+    } else if (!tierCompleted[3] && TIER[3].length > 0) {
+      nextTier = 3; count = TIER[3].length;
+      label = `Go deeper · ${count} more ↓`;
+    } else {
       wrap.hidden = true;
       return;
     }
     wrap.hidden = false;
-    const list = extRankedList();
-    $('#extended-rows').innerHTML = list.map((row, i) => `
-      <div class="rank-row" data-cid="${row.c.id}" role="button" tabindex="0" aria-label="More about ${escapeHtml(row.c.name)}">
-        <div class="rank-num">${i + 1}</div>
-        ${avatarHtml(row.c, 'sm')}
-        <div class="rank-info">
-          <div class="rank-name">
-            <span>${escapeHtml(row.c.name)}</span>
-            <span class="party-chip party-${row.c.party}"><span class="dot"></span>${row.c.party}</span>
-          </div>
-          <div class="rank-role">${escapeHtml(row.c.role)}</div>
-        </div>
-      </div>
-    `).join('');
-    renderShare(rankedList().slice(0, 5));
+    btn.textContent = label;
+    btn.dataset.nextTier = String(nextTier);
   }
 
-  function startExtended() {
-    if (EC.length === 0) return;
-    mode = 'extended';
-    extCursor = 0;
-    for (const id of Object.keys(extRatings)) extRatings[id] = 1500;
-    for (const id of Object.keys(extWins)) extWins[id] = 0;
-    for (const id of Object.keys(extAppearances)) extAppearances[id] = 0;
-    extMatchups = buildMatchups(EC, EC.length);
-    // History does not survive a mode switch (can't undo across rounds).
+  function startTier(tier) {
+    if (!TIER[tier] || TIER[tier].length === 0) return;
+    activeTier = tier;
+    appearances = Object.fromEntries(TIER[tier].map(c => [c.id, 0]));
+    votesThisTier = 0;
+    currentMatchup = null;
     voteHistory = [];
     show('vote');
     renderMatchup();
     renderBackBtn();
-    // Hide stat overlay if it was lingering.
     $('#stat-overlay').classList.remove('show');
   }
 
@@ -948,13 +1007,17 @@
       '',
       ...top5Lines,
     ];
-    if (extendedDone) {
-      const extList = extRankedList();
-      lines.push('');
-      lines.push(`+ long tail (${extList.length})`);
-      extList.forEach((r, i) => {
-        lines.push(`${i + 1}. ${partyEmoji(r.c.party)} ${r.c.name}`);
-      });
+    // Long-tail block: present only if the user opted into Tier 2/3 — the
+    // ranked list below top-5 is then meaningful (vs. an unranked tail).
+    if (openedTiers().length > 1) {
+      const tail = rankedList().slice(5);
+      if (tail.length) {
+        lines.push('');
+        lines.push(`+ long tail (${tail.length})`);
+        tail.forEach((r, i) => {
+          lines.push(`${i + 6}. ${partyEmoji(r.c.party)} ${r.c.name}`);
+        });
+      }
     }
     lines.push('');
     lines.push(`Rank yours: ${url}`);
@@ -964,17 +1027,19 @@
   function shareUrl(top5) {
     const u = new URL(window.location.href);
     if (serverBallotId) {
-      // Server-side ballot id: short URL, also persists the extended
-      // ranking on the server. Drop the x= param since the server has it.
+      // Server-side ballot id: short URL; server already persisted any
+      // extended ranking. Drop the x= param.
       u.searchParams.set('b', serverBallotId);
       u.searchParams.delete('x');
     } else {
-      // Fallback: legacy inline format, in case the API was unreachable.
+      // Fallback inline format (API unreachable). Encodes Tier-2/3 picks
+      // in x= only if the user opted in.
       const ids = top5.map(r => r.c.id).join(',');
       u.searchParams.set('b', ids);
-      if (extendedDone) {
-        const extIds = extRankedList().map(r => r.c.id).join(',');
+      if (openedTiers().length > 1) {
+        const extIds = rankedList().slice(5).map(r => r.c.id).join(',');
         if (extIds) u.searchParams.set('x', extIds);
+        else u.searchParams.delete('x');
       } else {
         u.searchParams.delete('x');
       }
@@ -1075,32 +1140,171 @@
     $('#start-btn').textContent = 'Build my ballot →';
   }
 
+  /* ---------- stats screen (crowd ELO explorer) ----------
+   * Reached only via the "See global stats →" CTA on the results
+   * screen. Filters by country (visitor's + GLOBAL) and party. Rows tap
+   * through to the candidate detail sheet.
+   */
+  const statsState = { country: 'GLOBAL', party: 'all', loading: false, error: false };
+
+  function renderStatsCountryChips() {
+    const host = $('#stats-country-chips');
+    if (!host) return;
+    const chips = [];
+    if (countryHint && /^[A-Z]{2}$/.test(countryHint)) {
+      const active = statsState.country === countryHint;
+      chips.push(`<button class="filter-chip${active ? ' active' : ''}" data-country="${countryHint}" role="radio" aria-checked="${active}">${flagOf(countryHint)} ${countryHint}</button>`);
+    }
+    const globalActive = statsState.country === 'GLOBAL';
+    chips.push(`<button class="filter-chip${globalActive ? ' active' : ''}" data-country="GLOBAL" role="radio" aria-checked="${globalActive}">🌍 Global</button>`);
+    host.innerHTML = chips.join('');
+  }
+
+  function renderStatsPartyChips() {
+    const host = $('#stats-party-chips');
+    if (!host) return;
+    host.querySelectorAll('.filter-chip').forEach(btn => {
+      const on = btn.dataset.party === statsState.party;
+      btn.classList.toggle('active', on);
+      btn.setAttribute('aria-checked', String(on));
+    });
+  }
+
+  function renderStatsList(rows, note) {
+    const list = $('#stats-list');
+    const empty = $('#stats-empty');
+    if (!list) return;
+    if (note) {
+      list.innerHTML = `<div class="stats-note">${escapeHtml(note)}</div>`;
+    } else {
+      list.innerHTML = '';
+    }
+    if (statsState.error) {
+      list.innerHTML += `<div class="stats-error">Couldn't load — <button class="stats-retry" id="stats-retry-btn">try again</button></div>`;
+      if (empty) empty.hidden = true;
+      return;
+    }
+    if (!rows || rows.length === 0) {
+      if (empty) {
+        empty.hidden = false;
+        empty.textContent = 'No data yet for this scope.';
+      }
+      return;
+    }
+    if (empty) empty.hidden = true;
+    const html = rows.map((row, i) => {
+      const c = byIdAll[row.id];
+      if (!c) return '';
+      const n = Math.round(Number(row.n_ballots) || 0);
+      const elo = Math.round(Number(row.elo) || 1500);
+      return `<div class="stats-row" data-cid="${row.id}" role="button" tabindex="0" aria-label="More about ${escapeHtml(c.name)}">
+        <div class="stats-rank">${i + 1}</div>
+        ${avatarHtml(c, 'sm')}
+        <div class="stats-info">
+          <div class="stats-name">
+            <span>${escapeHtml(c.name)}</span>
+            <span class="party-chip party-${c.party}"><span class="dot"></span>${c.party}</span>
+          </div>
+          <div class="stats-meta">ELO ${elo} · ${n} ${n === 1 ? 'ballot' : 'ballots'}</div>
+        </div>
+      </div>`;
+    }).join('');
+    list.insertAdjacentHTML('beforeend', html);
+  }
+
+  function fetchEloList() {
+    if (!API_REACHABLE) return Promise.resolve(null);
+    const params = new URLSearchParams();
+    params.set('country', statsState.country);
+    if (statsState.party !== 'all') params.set('party', statsState.party);
+    params.set('limit', '40');
+    return apiFetch(`/api/elo?${params.toString()}`, { method: 'GET' })
+      .then(r => r && r.ok ? r.json() : null)
+      .catch(() => null);
+  }
+
+  function pickStatsScope() {
+    // First open: prefer the visitor's country if we know it.
+    if (statsState.country === 'GLOBAL' && countryHint && /^[A-Z]{2}$/.test(countryHint)) {
+      statsState.country = countryHint;
+    }
+    renderStatsCountryChips();
+    renderStatsPartyChips();
+    statsState.error = false;
+    const list = $('#stats-list');
+    if (list) list.innerHTML = `<div class="stats-loading">Loading…</div>`;
+
+    fetchEloList().then(json => {
+      if (!json) {
+        // Treat as soft-empty: API unreachable or 4xx without payload.
+        renderStatsList([], null);
+        return;
+      }
+      if (!Array.isArray(json)) {
+        statsState.error = true;
+        renderStatsList(null, null);
+        return;
+      }
+      // Low-data fallback: if a specific country returns < 5 rows, switch
+      // to GLOBAL with an explanatory note.
+      if (statsState.country !== 'GLOBAL' && json.length < 5) {
+        const previous = statsState.country;
+        statsState.country = 'GLOBAL';
+        renderStatsCountryChips();
+        fetchEloList().then(j2 => {
+          renderStatsList(Array.isArray(j2) ? j2 : [],
+            `Not enough data in ${flagOf(previous)} ${previous} yet — showing Global.`);
+        });
+        return;
+      }
+      renderStatsList(json, null);
+    });
+  }
+
+  // Filter chip + retry + row delegation on the stats screen.
+  document.addEventListener('click', (e) => {
+    const countryChip = e.target.closest('#stats-country-chips .filter-chip');
+    if (countryChip) {
+      statsState.country = countryChip.dataset.country;
+      pickStatsScope();
+      return;
+    }
+    const partyChip = e.target.closest('#stats-party-chips .filter-chip');
+    if (partyChip) {
+      statsState.party = partyChip.dataset.party;
+      pickStatsScope();
+      return;
+    }
+    if (e.target.id === 'stats-retry-btn') {
+      pickStatsScope();
+      return;
+    }
+    const statsRow = e.target.closest('.stats-row[data-cid]');
+    if (statsRow) {
+      openDetailSheet(statsRow.dataset.cid);
+    }
+  });
+
   /* ---------- wiring ---------- */
   function start() {
-    mode = 'main';
-    extendedDone = false;
-    matchups = buildMatchups();
-    cursor = 0;
-    for (const id of Object.keys(ratings)) ratings[id] = 1500;
-    for (const id of Object.keys(wins)) wins[id] = 0;
-    for (const id of Object.keys(appearances)) appearances[id] = 0;
-    for (const id of Object.keys(extRatings)) extRatings[id] = 1500;
-    for (const id of Object.keys(extWins)) extWins[id] = 0;
-    for (const id of Object.keys(extAppearances)) extAppearances[id] = 0;
-    extCursor = 0;
-    voteHistory = [];
-    const extWrap = $('#extended-ranking'); if (extWrap) extWrap.hidden = true;
-    show('vote');
-    renderMatchup();
-    renderBackBtn();
+    // Fresh ballot: wipe ratings/RD/sigma/wins across all 40 candidates,
+    // reset per-tier completion, and start Tier 1.
+    for (const id of Object.keys(ratings)) ratings[id] = RATING_INIT;
+    for (const id of Object.keys(rd))      rd[id]      = RD_INIT;
+    for (const id of Object.keys(sigma))   sigma[id]   = SIGMA_INIT;
+    for (const id of Object.keys(wins))    wins[id]    = 0;
+    tierCompleted = { 1: false, 2: false, 3: false };
+    serverBallotId = null;
+    startTier(1);
   }
 
   $('#start-btn').addEventListener('click', start);
   $('#restart-btn').addEventListener('click', () => { show('start'); $('#progress').hidden = true; });
-  // Wire keep-ranking CTA if present (rendered on results screen).
+  // Tier-progression CTA on the results screen.
   document.addEventListener('click', (e) => {
     if (e.target && e.target.id === 'keep-ranking-btn') {
-      startExtended();
+      const next = parseInt(e.target.dataset.nextTier || '0', 10);
+      if (next === 2 || next === 3) startTier(next);
     }
   });
   function wireCard(slot) {
@@ -1139,14 +1343,24 @@
   wireCard('b');
   $('#skip-btn').addEventListener('click', skip);
   $('#back-btn').addEventListener('click', goBack);
-  $('#toggle-full-btn').addEventListener('click', () => {
-    const el = $('#full-ranking');
-    const open = el.classList.toggle('show');
-    $('#toggle-full-btn').textContent = open ? 'Hide full ranking ↑' : 'Show full ranking ↓';
-  });
   $('#about-link').addEventListener('click', (e) => {
     e.preventDefault();
     toast('Built for fun. No data leaves your phone.');
+  });
+  // Stats screen wiring (button added in Phase D/E).
+  const openStatsBtn = $('#open-stats-btn');
+  if (openStatsBtn) openStatsBtn.addEventListener('click', () => {
+    show('stats');
+    pickStatsScope();
+  });
+  const statsBackBtn = $('#stats-back-btn');
+  if (statsBackBtn) statsBackBtn.addEventListener('click', () => { show('results'); });
+  // X-post button: opens twitter.com/intent/tweet with share text URL-encoded.
+  const shareXBtn = $('#share-x-btn');
+  if (shareXBtn) shareXBtn.addEventListener('click', () => {
+    const text = $('#share-preview').textContent || '';
+    const url = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(text);
+    window.open(url, '_blank', 'noopener,noreferrer');
   });
 
   // keyboard

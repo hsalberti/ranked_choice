@@ -197,6 +197,40 @@ Goal: production-grade readiness without scope creep.
 **Exit criteria:** Lighthouse 95+ across the board, error budget green
 for a full week, OG previews render on share.
 
+## v2 — Smart matchups + Crowd ELO [in progress — 2026-05-17]
+
+Driven by the OpenSpec change `smart-matchups-crowd-elo`
+(`openspec/changes/smart-matchups-crowd-elo/`). Sharpens the matchup
+algorithm, restructures the roster into three opt-in tiers, refocuses
+the results screen on the personal ballot, and exposes a country-aware
+crowd ELO explorer.
+
+- **Tiered roster (15 / 12 / 13).** Headline shrinks to a Tier-1 top
+  cohort (15 names; `trumpjr` and `pritzker` promoted from extended).
+  Tier 2 (12) and Tier 3 (13) become "Keep voting" and "Go deeper"
+  opt-in waves. ELO carries forward across tiers.
+- **Smart matchup engine.** R1 fixed (Vance vs. Newsom). R2 hand-picked
+  rival (`vance → rubio`, `newsom → aoc`). R3+ adaptive (70%
+  close-rated, 30% random) with a coverage floor. Glicko-2 with a
+  10-vote floor / 18-vote cap in Tier 1.
+- **Crowd ELO backend.** New D1 table `candidate_country_elo`,
+  incremental Glicko-2 in `POST /api/vote`, new `GET /api/elo`
+  endpoint with country + party filters and min-N gating (`ELO_MIN_N`
+  env var, default 20).
+- **Stats screen.** New `#screen-stats` reachable only from the
+  results screen. Filter chips for country and party; row → existing
+  detail sheet.
+- **Refocused results screen.** Top-5 + Wordle-shape grid + Copy /
+  Post-to-X / native-share buttons + "See global stats →" CTA +
+  tier-progression CTA. Country leaderboard, you-vs-country comparison,
+  and full-ranking toggle move off-page (functions retained for the
+  stats screen).
+
+**Exit criteria:** roster reshuffle live; median Tier-1 session ≤ 18
+votes; `/api/elo` returns country-aware leaderboards under 100ms p95;
+stats screen renders without `country_leaderboard` / `country_comparison`
+calls in the results path.
+
 ## Phase 7 — Beyond MVP
 
 Picked up only when there's demand signal from real usage.
