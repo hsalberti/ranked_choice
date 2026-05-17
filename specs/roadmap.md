@@ -67,7 +67,7 @@ the `*.pages.dev` target, then CNAME `2028ballot.almaintel.com` to it
 at Hostinger (see `website_instructions.md` Steps 1–3 and the
 matching Troubleshooting entry). Keep the Worker for `/api/*` only.
 
-## Phase 1.5 — Candidate detail cards & engagement tracking
+## Phase 1.5 — Candidate detail cards & engagement tracking [done — partial — 2026-05-17, frontend live on prod, backend complete locally; prod deploy pending wrangler login]
 
 Goal: each candidate card has a front (punchy hook) + a back (factual
 detail) that the visitor can open, with click tracking on outbound
@@ -109,7 +109,7 @@ accidentally triggered from the back face, link buttons open in a new
 tab, and (once the backend ships) D1 counts increment within a few
 seconds of a click.
 
-## Phase 2 — Vote ingestion + country-filtered overlay
+## Phase 2 — Vote ingestion + country-filtered overlay [done — partial — 2026-05-17, backend complete locally; prod deploy pending wrangler login]
 
 Goal: the stats overlay shows real, country-aware numbers.
 
@@ -126,7 +126,7 @@ Goal: the stats overlay shows real, country-aware numbers.
 **Exit criteria:** voting on phone A makes the percentage move on
 phone B (same country) within five seconds.
 
-## Phase 3 — Ballot submission + country leaderboard
+## Phase 3 — Ballot submission + country leaderboard [done — partial — 2026-05-17, backend complete locally; prod deploy pending wrangler login]
 
 Goal: country-level top-5 visible at the results screen.
 
@@ -145,7 +145,7 @@ Goal: country-level top-5 visible at the results screen.
 and the country leaderboard updates within a few seconds and matches
 the count returned from D1.
 
-## Phase 4 — Ballot-vs-country comparison
+## Phase 4 — Ballot-vs-country comparison [done — partial — 2026-05-17, backend complete locally; prod deploy pending wrangler login]
 
 Goal: surface how a user agrees and disagrees with their country.
 

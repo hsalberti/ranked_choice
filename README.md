@@ -52,35 +52,79 @@ recipient can build their own and compare.
 
 ---
 
-## Backend setup (Phase 1)
+## Backend setup
 
-The Cloudflare Worker scaffold lives in `api/`. After Phase 1 deploys,
-the frontend will call `/api/health` to surface the visitor's country.
+The Cloudflare Worker lives in `api/` and powers `/api/health`,
+`/api/event` (Phase 1.5), `/api/vote` + `/api/stats` (Phase 2),
+`/api/ballot` + `/api/ballot/:id` + `/api/leaderboard/:country`
+(Phase 3), `/api/comparison/:country` (Phase 4).
 
 **Prereqs:** a Cloudflare account.
 
+### Local dev (no Cloudflare account needed yet)
+
 ```bash
-# 1. Install Wrangler + types (in api/).
 cd api
 npm install
-
-# 2. Authenticate Wrangler.
-wrangler login
-
-# 3. Deploy the Worker for the first time.
-wrangler deploy
-# → outputs something like https://ranked-choice-api.<your-subdomain>.workers.dev
+npm run dev          # wrangler dev — Worker on http://127.0.0.1:8787 + local SQLite D1
 ```
 
-Visit `https://ranked-choice-api.<your-subdomain>.workers.dev/api/health`
-and confirm it returns `{ "ok": true, "country": "BR" }` (or wherever
-you are).
+In another terminal, apply migrations to the local D1 once:
+
+```bash
+cd api
+wrangler d1 migrations apply ranked-choice-db --local
+```
+
+Then serve the frontend on a separate port:
+
+```bash
+# repo root
+python3 -m http.server 8765
+# open http://127.0.0.1:8765
+```
+
+The frontend auto-points at `http://127.0.0.1:8787` whenever the host
+is localhost; everywhere else it points at the deployed Worker (see
+`API_BASE_URL` in `app.js`).
+
+### Production: first deploy
+
+```bash
+cd api
+
+# 1. Authenticate.
+wrangler login
+
+# 2. Create the production D1 once. Copy the returned UUID.
+wrangler d1 create ranked-choice-db
+
+# 3. Paste the UUID into api/wrangler.toml under [[d1_databases]] →
+#    database_id (replacing the "ranked-choice-db-local" placeholder).
+
+# 4. Apply migrations against the remote DB.
+wrangler d1 migrations apply ranked-choice-db --remote
+
+# 5. Deploy the Worker.
+wrangler deploy
+# → outputs https://ranked-choice-api.<your-subdomain>.workers.dev
+```
+
+Verify:
+
+```bash
+curl https://ranked-choice-api.<your-subdomain>.workers.dev/api/health
+# → {"ok":true,"country":"BR"}
+```
+
+If the deployed Worker name isn't `ranked-choice-api.alberti-rick.workers.dev`,
+update the prod URL constant in `app.js` (`API_BASE_URL` derivation).
 
 ### CI deployment
 
-`.github/workflows/deploy.yml` runs `wrangler deploy` on every push to
-`main` that touches `api/`, `migrations/`, or the workflow itself.
-Two repo secrets are required:
+`.github/workflows/deploy.yml` runs `wrangler deploy` + applies any
+pending D1 migrations on every push to `main` that touches `api/`,
+`migrations/`, or the workflow itself.
 
 ```bash
 # Create a scoped Cloudflare API token at:
@@ -92,32 +136,28 @@ gh secret set CLOUDFLARE_API_TOKEN
 gh secret set CLOUDFLARE_ACCOUNT_ID   # 32-char hex from the dashboard sidebar
 ```
 
-### Phase 2 — D1 setup (later)
-
-When you're ready to ingest real votes:
-
-```bash
-cd api
-wrangler d1 create ranked-choice-db
-# Paste the printed database_id into wrangler.toml under [[d1_databases]]
-# and uncomment that block + the migrations_dir.
-
-# First migration applied locally (Miniflare SQLite):
-wrangler d1 migrations apply ranked-choice-db --local
-
-# And remotely:
-wrangler d1 migrations apply ranked-choice-db --remote
-```
-
-The migration SQL files live in `../migrations/`. Schema definitions
-are in `specs/tech-stack.md`.
-
 ### Phase 5 — Turnstile + KV (much later)
 
 ```bash
 wrangler kv namespace create RATE_LIMIT   # paste id into wrangler.toml
 wrangler secret put TURNSTILE_SECRET
 wrangler secret put DAILY_SALT
+```
+
+### Quick admin queries (D1)
+
+```bash
+# Top-voted candidate per country, last 7 days:
+wrangler d1 execute ranked-choice-db --remote --command \
+  "SELECT country, picked_id, SUM(votes) v FROM pair_aggregates GROUP BY country, picked_id ORDER BY country, v DESC LIMIT 50;"
+
+# Candidate-detail flip leaders:
+wrangler d1 execute ranked-choice-db --remote --command \
+  "SELECT candidate_id, SUM(count) total FROM candidate_events WHERE event_type='flip_open' GROUP BY candidate_id ORDER BY total DESC LIMIT 10;"
+
+# Country leaderboard, raw:
+wrangler d1 execute ranked-choice-db --remote --command \
+  "SELECT * FROM candidate_country_score WHERE country='BR' ORDER BY weighted DESC LIMIT 5;"
 ```
 
 ---
