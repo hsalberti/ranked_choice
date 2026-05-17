@@ -662,3 +662,399 @@ window.CANDIDATES = [
     },
   },
 ];
+
+// Extended ranking pool — surfaced via the "Keep ranking" CTA on the
+// results screen for politically-inclined voters who want to keep going
+// past the headline 25. Sourced from research/nyt-2028-candidates.md
+// (Reid Epstein's running NYT roundup). Same schema as CANDIDATES.
+window.EXTENDED_CANDIDATES = [
+  {
+    id: 'pritzker',
+    name: 'J.B. Pritzker',
+    party: 'D',
+    role: 'Governor of Illinois',
+    hook: 'Hyatt-heir billionaire governor running Illinois as a national-Democratic counterweight to red-state policy.',
+    bio_long:
+      'J.B. Pritzker is an heir to the Hyatt hotel fortune and a venture investor who served on a string of Chicago civic boards before running for governor in 2018. ' +
+      'He won re-election by 13 points in 2022 and has pushed a sweeping agenda — abortion-rights protections, an assault-weapons ban, and large state-funded child-care expansions. ' +
+      'He has self-funded a national policy organization and visited every early primary state since 2024 without formally announcing a campaign.',
+    storyline:
+      'The donor-and-policy lane: a governor with personal wealth, executive record, and a willingness to throw punches at Republican governors on national TV.',
+    policy: [
+      'State-funded universal preschool and child-care expansion.',
+      'Assault-weapons ban and high-capacity-magazine limits.',
+      'Reproductive-rights shield laws for out-of-state patients.',
+      'Manufacturing tax credits aimed at EVs and chips.',
+    ],
+    moment:
+      'In 2024 he loaned his policy organization $10M to fund a counter-messaging operation against red-state abortion bans.',
+    links: {
+      twitter: 'https://twitter.com/GovPritzker',
+      wikipedia: 'https://en.wikipedia.org/wiki/J._B._Pritzker',
+    },
+  },
+
+  {
+    id: 'sanders_sh',
+    name: 'Sarah Huckabee Sanders',
+    party: 'R',
+    role: 'Governor of Arkansas',
+    hook: 'Former Trump press secretary turned Arkansas governor with an unusually high in-party approval rating.',
+    bio_long:
+      'Sarah Huckabee Sanders is the daughter of former Arkansas governor Mike Huckabee and served as White House press secretary in Donald Trump\'s first administration. ' +
+      'She was elected governor of Arkansas in 2022, becoming the first woman to hold the office, and signed sweeping education and tax-cut packages in her first term. ' +
+      'She is widely seen as a likely 2028 contender or VP shortlist name, with strong donor and grassroots ties on both legs of the modern GOP.',
+    storyline:
+      'A bridge candidate between Trump-era staff and the next generation of Republican executives — and one of the few women in the field.',
+    policy: [
+      'Universal school-choice voucher program.',
+      'Phaseout of state income tax.',
+      'Restrictions on social-media use by minors.',
+      'Abortion limits with narrow medical exceptions.',
+    ],
+    moment:
+      'Her 2023 State of the Union response, delivered at age 40, framed the GOP as the party of "normal" against a "woke mob."',
+    links: {
+      twitter: 'https://twitter.com/SarahHuckabee',
+      wikipedia: 'https://en.wikipedia.org/wiki/Sarah_Huckabee_Sanders',
+    },
+  },
+
+  {
+    id: 'abbott',
+    name: 'Greg Abbott',
+    party: 'R',
+    role: 'Governor of Texas',
+    hook: 'Three-term Texas governor whose border-busing program reshaped the national immigration debate.',
+    bio_long:
+      'Greg Abbott served as Texas attorney general for 12 years before winning the governor\'s office in 2014 and re-election in 2018 and 2022. ' +
+      'His border-security initiative — including the Operation Lone Star deployment and migrant-busing program to northern cities — became the model for Republican governors across the country. ' +
+      'He has signed major school-choice, abortion-restriction, and electric-grid legislation, and remained a fixture on the donor circuit even without a formal 2028 launch.',
+    storyline:
+      'The governor most identified with the immigration fight that defined the 2024 cycle. A run hinges on whether the field clears for him or stays crowded.',
+    policy: [
+      'Aggressive state-level border enforcement and migrant transport.',
+      'Universal school-choice and parental-rights laws.',
+      'Six-week abortion ban with narrow exceptions.',
+      'Electric-grid hardening and ERCOT reform.',
+    ],
+    moment:
+      'His 2022 deployment of state National Guard and DPS to the Texas-Mexico border under Operation Lone Star turned a state program into a national policy proxy.',
+    links: {
+      twitter: 'https://twitter.com/GregAbbott_TX',
+      wikipedia: 'https://en.wikipedia.org/wiki/Greg_Abbott',
+    },
+  },
+
+  {
+    id: 'kemp',
+    name: 'Brian Kemp',
+    party: 'R',
+    role: 'Governor of Georgia',
+    hook: 'Term-limited Georgia governor who broke with Trump on 2020 election certification and won re-election anyway.',
+    bio_long:
+      'Brian Kemp served as Georgia secretary of state before winning a narrow 2018 governor\'s race against Stacey Abrams. ' +
+      'He resisted Donald Trump\'s pressure to overturn Georgia\'s 2020 election result, then crushed a Trump-backed primary challenge from David Perdue in 2022 and beat Abrams again in the general by seven points. ' +
+      'Term-limited from another gubernatorial run, he has built a national profile through business-friendly governance and a brief 2028 PAC announcement in late 2025.',
+    storyline:
+      'A "Trump-tolerant" Republican executive who has won statewide twice without breaking the coalition — a model some donors badly want at the national level.',
+    policy: [
+      'State income-tax reduction and Georgia film-industry incentives.',
+      'Public-safety hiring bonuses and prosecutorial-discretion limits.',
+      'Heartbeat abortion ban with rape-and-incest exceptions.',
+      'Election-integrity laws including absentee-ballot ID.',
+    ],
+    moment:
+      'In 2020 he certified Joe Biden\'s narrow Georgia win despite a public Trump pressure campaign — and survived the 2022 primary backlash anyway.',
+    links: {
+      twitter: 'https://twitter.com/BrianKempGA',
+      wikipedia: 'https://en.wikipedia.org/wiki/Brian_Kemp',
+    },
+  },
+
+  {
+    id: 'youngkin',
+    name: 'Glenn Youngkin',
+    party: 'R',
+    role: 'Former Governor of Virginia',
+    hook: 'Carlyle Group ex-CEO who flipped Virginia in 2021 with a parents-and-schools campaign, term-limited at 53.',
+    bio_long:
+      'Glenn Youngkin spent 25 years at the Carlyle Group, rising to co-CEO, before stepping down in 2020 to run for governor of Virginia. ' +
+      'He won in 2021 by riding a parents-rights education message that ate into Democratic suburbs and ended the term-limited governorship as one of the most-watched Republican executives in the country. ' +
+      'Virginia limits its governors to a single consecutive term, freeing him to weigh a 2028 run with a fresh donor list and minimal voting record to defend.',
+    storyline:
+      'A relatively gaffe-free private-equity-to-politics pitch with a recent statewide win in a purple state — donor-class catnip if the field is ready for it.',
+    policy: [
+      'Parental-rights laws and curriculum-transparency rules.',
+      'Personal income-tax reductions and unemployment-tax cuts.',
+      'Mental-health workforce investment and right-to-work defense.',
+      'Energy-development support including small modular reactors.',
+    ],
+    moment:
+      'His 2021 win flipped a Virginia that Joe Biden carried by 10 points the year before — one of the steepest one-cycle swings in modern Virginia history.',
+    links: {
+      twitter: 'https://twitter.com/GlennYoungkin',
+      wikipedia: 'https://en.wikipedia.org/wiki/Glenn_Youngkin',
+    },
+  },
+
+  {
+    id: 'burgum',
+    name: 'Doug Burgum',
+    party: 'R',
+    role: 'U.S. Secretary of the Interior',
+    hook: 'Microsoft-billionaire former North Dakota governor running Interior with a fossil-fuels-and-mining brief.',
+    bio_long:
+      'Doug Burgum built Great Plains Software, sold it to Microsoft for $1.1B in 2001, and became a Microsoft senior vice president before returning to North Dakota to serve as governor for two terms. ' +
+      'He ran briefly in the 2024 Republican primary as a low-key economic-development candidate before withdrawing and endorsing Donald Trump. ' +
+      'As Secretary of the Interior he has overseen expanded oil-and-gas leasing, critical-mineral permitting, and a sharp rollback of Biden-era public-lands rules.',
+    storyline:
+      'A Cabinet job at Interior is an unusual launchpad, but the energy-and-minerals lane is wide open and his donor network is real.',
+    policy: [
+      'Expanded oil, gas, and critical-mineral leasing on federal lands.',
+      'Permitting reform for energy and infrastructure projects.',
+      'Public-land use deregulation; reduced national-monument designations.',
+      'Investment in U.S. uranium and nuclear-fuel supply chains.',
+    ],
+    moment:
+      'In 2023 he qualified for the first GOP primary debate by accepting $1 contributions from individual donors at a steep marketing cost — a strategy widely copied since.',
+    links: {
+      twitter: 'https://twitter.com/DougBurgum',
+      wikipedia: 'https://en.wikipedia.org/wiki/Doug_Burgum',
+    },
+  },
+
+  {
+    id: 'gabbard',
+    name: 'Tulsi Gabbard',
+    party: 'R',
+    role: 'Director of National Intelligence',
+    hook: 'Former Democratic congresswoman, 2020 primary candidate, now Trump\'s top intelligence official.',
+    bio_long:
+      'Tulsi Gabbard served four terms in the U.S. House from Hawaii as a Democrat, ran for the 2020 Democratic presidential nomination, and left the party in 2022 citing what she called its "elitist cabal." ' +
+      'She endorsed Donald Trump in 2024 and joined the new administration as Director of National Intelligence after Senate confirmation in early 2025. ' +
+      'She is an Army National Guard lieutenant colonel with two Iraq-era deployments, and remains an unconventional voice in the Republican coalition on foreign policy.',
+    storyline:
+      'A genuine crossover candidate — anti-interventionist, populist, and famous enough to draw attention but untethered from either party\'s establishment.',
+    policy: [
+      'Skepticism of overseas U.S. military intervention.',
+      'Whistleblower and intelligence-community reform.',
+      'Veterans\' healthcare investment and PTSD treatment access.',
+      'First Amendment and free-speech-focused tech regulation.',
+    ],
+    moment:
+      'In a 2019 Democratic debate she effectively ended Kamala Harris\'s presidential campaign by attacking her California prosecutorial record.',
+    links: {
+      twitter: 'https://twitter.com/TulsiGabbard',
+      wikipedia: 'https://en.wikipedia.org/wiki/Tulsi_Gabbard',
+    },
+  },
+
+  {
+    id: 'paul',
+    name: 'Rand Paul',
+    party: 'R',
+    role: 'U.S. Senator from Kentucky',
+    hook: 'Ophthalmologist-turned-senator and 2016 primary contender carrying the libertarian-wing torch.',
+    bio_long:
+      'Rand Paul is an ophthalmologist who entered the Senate in 2011 on a Tea Party wave and has held the seat through three elections. ' +
+      'He ran for president in 2016 and has built a brand around opposition to mass surveillance, foreign intervention, and pandemic-era public-health restrictions. ' +
+      'As chair of the Homeland Security and Governmental Affairs Committee he has driven investigations of intelligence-agency surveillance and Anthony Fauci\'s NIAID tenure.',
+    storyline:
+      'A long-running libertarian lane that\'s never won a Republican primary but consistently sets a slice of the policy agenda.',
+    policy: [
+      'Curbs on NSA mass-surveillance and FISA-court authorities.',
+      'Skepticism of long-term U.S. foreign-military engagements.',
+      'Federal-spending audits and budget-reduction bills.',
+      'Civil-liberties protections, including criminal-justice reform.',
+    ],
+    moment:
+      'His 2013 13-hour Senate floor filibuster over drone-strike authority went viral on Twitter and made him a libertarian-movement folk hero.',
+    links: {
+      twitter: 'https://twitter.com/RandPaul',
+      wikipedia: 'https://en.wikipedia.org/wiki/Rand_Paul',
+    },
+  },
+
+  {
+    id: 'kelly',
+    name: 'Mark Kelly',
+    party: 'D',
+    role: 'U.S. Senator from Arizona',
+    hook: 'Former astronaut, gun-control advocate, and Arizona senator with a center-left brand and national ambitions.',
+    bio_long:
+      'Mark Kelly is a retired U.S. Navy captain who flew four space shuttle missions before retiring from NASA in 2011 to care for his wife, former Rep. Gabby Giffords, after she was shot. ' +
+      'He won the 2020 Arizona special Senate election and the 2022 general by clear margins, becoming one of the few Democrats to consistently outrun the party in a swing state. ' +
+      'He was on Kamala Harris\'s 2024 VP shortlist and has kept an open national schedule since.',
+    storyline:
+      'A "boring strength" Democrat — military credibility, swing-state record, no major culture-war scars. The lane is open if 2028 wants safety.',
+    policy: [
+      'Background-check expansion and red-flag laws.',
+      'Border-security investment paired with legal-immigration reform.',
+      'Veterans\' healthcare expansion and burn-pit compensation.',
+      'Semiconductor manufacturing investment and tech-industrial policy.',
+    ],
+    moment:
+      'His 2020 Senate swearing-in came one day after the Jan. 6 Capitol riot — his arrival flipping the chamber to Democratic control.',
+    links: {
+      twitter: 'https://twitter.com/SenMarkKelly',
+      wikipedia: 'https://en.wikipedia.org/wiki/Mark_Kelly_(astronaut)',
+    },
+  },
+
+  {
+    id: 'vanhollen',
+    name: 'Chris Van Hollen',
+    party: 'D',
+    role: 'U.S. Senator from Maryland',
+    hook: 'Maryland senator known for Latin American policy work and the early-2026 standoff over deportations.',
+    bio_long:
+      'Chris Van Hollen represented Maryland in the U.S. House for 14 years before winning a Senate seat in 2016. ' +
+      'He chairs the Senate Foreign Relations Subcommittee on Western Hemisphere affairs and has been a vocal critic of the Trump administration\'s deportation operations in Central America. ' +
+      'His March 2026 trip to El Salvador to demand the return of a wrongfully deported Maryland resident — and his confrontation with the Salvadoran government — drew national attention and an Iowa visit shortly afterward.',
+    storyline:
+      'A late-emerging lane: senior Senate Democrat with a foreign-policy resume and a viral confrontation that landed in the news cycle just as 2028 chatter began.',
+    policy: [
+      'Latin American sanctions and democracy programs.',
+      'Federal anti-poverty programs and EITC expansion.',
+      'Gun-violence prevention through purchase-licensing rules.',
+      'Climate-investment legislation, including offshore wind for the Chesapeake.',
+    ],
+    moment:
+      'In March 2026 he flew to El Salvador to publicly demand the return of a wrongfully deported Maryland constituent — generating days of national coverage.',
+    links: {
+      twitter: 'https://twitter.com/ChrisVanHollen',
+      wikipedia: 'https://en.wikipedia.org/wiki/Chris_Van_Hollen',
+    },
+  },
+
+  {
+    id: 'smith_sa',
+    name: 'Stephen A. Smith',
+    party: 'D',
+    role: 'ESPN host and commentator',
+    hook: 'ESPN\'s top sports personality publicly flirting with an independent-Democratic 2028 run.',
+    bio_long:
+      'Stephen A. Smith hosts ESPN\'s flagship debate show First Take and has the largest individual platform in U.S. sports media. ' +
+      'He has used his podcast and YouTube channel to comment increasingly on politics, including high-profile criticisms of the Biden 2024 campaign and the Democratic Party\'s working-class outreach. ' +
+      'He has publicly entertained a presidential run multiple times in 2025 and 2026 without filing — a recurring pattern that the political class is starting to take seriously.',
+    storyline:
+      'A name-recognition long shot from outside politics. The 2028 cycle has rewarded media figures before; whether ESPN-to-the-Oval Office translates is the open question.',
+    policy: [
+      'Working-class economic messaging without ideological labels.',
+      'Criminal-justice reform and second-chance hiring.',
+      'Anti-establishment positioning toward both party bases.',
+      'Federal-investment framing around small business and HBCU funding.',
+    ],
+    moment:
+      'In a March 2026 podcast episode he said he would "seriously consider" a run if the Democratic field stayed empty by the spring of 2027 — the comment trended for two days.',
+    links: {
+      twitter: 'https://twitter.com/stephenasmith',
+      wikipedia: 'https://en.wikipedia.org/wiki/Stephen_A._Smith',
+    },
+  },
+
+  {
+    id: 'trumpjr',
+    name: 'Donald Trump Jr.',
+    party: 'R',
+    role: 'Executive Vice President, The Trump Organization',
+    hook: 'The president\'s eldest son and an unfiltered MAGA-coalition voice on podcasts and X.',
+    bio_long:
+      'Donald Trump Jr. has helped run the Trump Organization since the 2000s and emerged as one of his father\'s most active political surrogates during the 2016, 2020, and 2024 campaigns. ' +
+      'He hosts the Triggered podcast, has a massive following on X, and has been credited with engineering the J.D. Vance VP pick in 2024. ' +
+      'He has never sought elected office, but his speaking schedule has expanded steadily through 2025 and 2026, with several visits to early-primary states.',
+    storyline:
+      'A pure-base play if the Trump family decides one of them should stay on the ballot — the question is whether the broader GOP coalition wants that.',
+    policy: [
+      'Hardline immigration enforcement and border-wall completion.',
+      'America-first trade and tariff posture.',
+      'Aggressive cultural-grievance framing toward universities and media.',
+      'Sport-shooting and Second Amendment expansion.',
+    ],
+    moment:
+      'In summer 2024 he was widely credited with pushing his father toward selecting J.D. Vance over a more traditional running mate.',
+    links: {
+      twitter: 'https://twitter.com/DonaldJTrumpJr',
+      wikipedia: 'https://en.wikipedia.org/wiki/Donald_Trump_Jr.',
+    },
+  },
+
+  {
+    id: 'emanuel',
+    name: 'Rahm Emanuel',
+    party: 'D',
+    role: 'Former U.S. Ambassador to Japan',
+    hook: 'Former Chicago mayor and Obama chief of staff with a famously sharp-elbowed style and a fresh policy platform.',
+    bio_long:
+      'Rahm Emanuel served as a House Democratic Caucus chair, Barack Obama\'s first White House chief of staff, and two terms as mayor of Chicago. ' +
+      'He spent the Biden administration as U.S. ambassador to Japan, leading the deepening U.S.-Japan-Korea trilateral and the Camp David summit framework. ' +
+      'Since returning stateside in early 2025 he has been on a heavy speaking-and-op-ed schedule, including multiple Iowa visits and a flurry of "the Democrats need to talk like normal people" policy memos.',
+    storyline:
+      'The "centrist comeback" lane — a sharp-edged Democrat with executive credentials and a foreign-policy resume, betting the primary wants to argue.',
+    policy: [
+      'Pro-growth Democratic framing focused on small business and tax simplification.',
+      'Japan-and-Korea-anchored Indo-Pacific strategy on China.',
+      'Public-school accountability with charter-school expansion.',
+      'Federal infrastructure investment with state-level performance metrics.',
+    ],
+    moment:
+      'His handling of the 2023 Camp David summit between the U.S., Japan, and South Korea is widely cited as the highlight of his Tokyo tenure.',
+    links: {
+      twitter: 'https://twitter.com/RahmEmanuel',
+      wikipedia: 'https://en.wikipedia.org/wiki/Rahm_Emanuel',
+    },
+  },
+
+  {
+    id: 'raimondo',
+    name: 'Gina Raimondo',
+    party: 'D',
+    role: 'Former U.S. Secretary of Commerce',
+    hook: 'Former Rhode Island governor who ran the CHIPS Act rollout and is now a donor-class 2028 favorite.',
+    bio_long:
+      'Gina Raimondo was a venture capitalist and Rhode Island state treasurer before winning the governorship in 2014, where she pushed a state-level free community-college program. ' +
+      'As Joe Biden\'s commerce secretary she became the public face of the $52B CHIPS Act semiconductor program, sitting in on chip-fab announcements and managing China export-control disputes. ' +
+      'She has kept a heavy national speaking schedule since leaving Commerce in 2025, with donor-class enthusiasm well ahead of public name recognition.',
+    storyline:
+      'A wonky industrial-policy lane that the donor class loves and primary voters have never heard of — testable, but not yet tested.',
+    policy: [
+      'Semiconductor and clean-energy industrial policy.',
+      'China export controls and outbound-investment reviews.',
+      'Workforce-training and apprenticeship investment.',
+      'Free community-college and skill-credential funding.',
+    ],
+    moment:
+      'Her March 2024 announcement of a $6.6B grant to TSMC for Arizona chip fabs was the largest single CHIPS Act award.',
+    links: {
+      twitter: 'https://twitter.com/GinaRaimondo',
+      wikipedia: 'https://en.wikipedia.org/wiki/Gina_Raimondo',
+    },
+  },
+
+  {
+    id: 'landrieu',
+    name: 'Mitch Landrieu',
+    party: 'D',
+    role: 'Former White House Senior Adviser for Infrastructure',
+    hook: 'Former New Orleans mayor who ran the federal infrastructure-law rollout and weighs a Southern-Democrat run.',
+    bio_long:
+      'Mitch Landrieu served two terms as mayor of New Orleans and rose to national prominence after his 2017 speech on the removal of Confederate monuments. ' +
+      'He served as Joe Biden\'s senior adviser overseeing the rollout of the $1.2T bipartisan infrastructure law, traveling to all 50 states to publicize specific project awards. ' +
+      'He published a book on his infrastructure tenure in late 2025 and has been making the rounds with state party committees ever since.',
+    storyline:
+      'A Southern-Democratic-comeback theory of the case — the open question is whether 2028 is the cycle that finally rewards it.',
+    policy: [
+      'Federal infrastructure investment paired with project-permitting reform.',
+      'Civil-rights-anchored historical-monument and memorial framing.',
+      'Public-safety funding with anti-violence community programs.',
+      'Coastal-resilience investment and FEMA reform.',
+    ],
+    moment:
+      'His 2017 speech as New Orleans mayor explaining the removal of four Confederate monuments was reprinted in full by major newspapers and won the JFK Profile in Courage Award.',
+    links: {
+      twitter: 'https://twitter.com/MitchLandrieu',
+      wikipedia: 'https://en.wikipedia.org/wiki/Mitch_Landrieu',
+    },
+  },
+];

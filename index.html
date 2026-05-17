@@ -51,7 +51,15 @@
         <div class="card" id="card-b" role="button" tabindex="0" aria-label="Pick right candidate"></div>
       </div>
       <div class="skip-row">
-        <button class="skip-btn" id="skip-btn">Skip this matchup ↓</button>
+        <button class="back-btn" id="back-btn" type="button" hidden aria-label="Go back to the previous matchup">
+          <span class="back-icon" aria-hidden="true">↶</span>
+          <span class="back-label">Back</span>
+        </button>
+        <button class="skip-btn" id="skip-btn" type="button" aria-label="Skip — I don't know either">
+          <span class="skip-icon" aria-hidden="true">↷</span>
+          <span class="skip-label">Skip</span>
+          <span class="skip-hint">I don't know either</span>
+        </button>
       </div>
     </section>
 
@@ -71,6 +79,16 @@
           <button class="cta" id="share-btn">Copy & share</button>
           <button class="cta secondary" id="share-native-btn" hidden>Share…</button>
         </div>
+      </div>
+
+      <div class="keep-ranking" id="keep-ranking" hidden>
+        <button class="cta secondary" id="keep-ranking-btn">Keep ranking ↓</button>
+        <p class="keep-ranking-blurb">Politically inclined? Rank a long-tail field beyond the headline 25.</p>
+      </div>
+
+      <div class="extended-ranking" id="extended-ranking" hidden>
+        <div class="extended-label">Your long-tail ranking</div>
+        <div class="extended-rows" id="extended-rows"></div>
       </div>
 
       <div class="toggle-full">

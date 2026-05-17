@@ -18,7 +18,11 @@
   const EVENT_FLUSH_URL = null;
 
   const C = window.CANDIDATES;
+  const EC = window.EXTENDED_CANDIDATES || [];
   const byId = Object.fromEntries(C.map(c => [c.id, c]));
+  const byIdExt = Object.fromEntries(EC.map(c => [c.id, c]));
+  const byIdAll = { ...byId, ...byIdExt };
+  const TOTAL_EXTENDED = EC.length;
 
   /* ---------- state ---------- */
   const ratings = Object.fromEntries(C.map(c => [c.id, 1500]));
@@ -26,6 +30,32 @@
   const appearances = Object.fromEntries(C.map(c => [c.id, 0]));
   let matchups = [];
   let cursor = 0;
+  // Per-vote undo trail. Each entry captures enough state to reverse the
+  // Elo update, local-vote tally, and cursor for the previous step.
+  let voteHistory = [];
+
+  // Extended-pool parallel state, used only after the user opts into
+  // the "Keep ranking" round from the results screen.
+  const extRatings = Object.fromEntries(EC.map(c => [c.id, 1500]));
+  const extWins = Object.fromEntries(EC.map(c => [c.id, 0]));
+  const extAppearances = Object.fromEntries(EC.map(c => [c.id, 0]));
+  let extMatchups = [];
+  let extCursor = 0;
+  let mode = 'main'; // 'main' | 'extended'
+  let extendedDone = false;
+
+  /* ---------- pool accessors (mode-aware) ----------
+   * The vote/elo/render functions below read & write through these so
+   * extended mode shares the same screen and DOM without forking.
+   */
+  function pRatings() { return mode === 'extended' ? extRatings : ratings; }
+  function pWins() { return mode === 'extended' ? extWins : wins; }
+  function pAppearances() { return mode === 'extended' ? extAppearances : appearances; }
+  function pMatchups() { return mode === 'extended' ? extMatchups : matchups; }
+  function pCursor() { return mode === 'extended' ? extCursor : cursor; }
+  function setCursor(n) { if (mode === 'extended') extCursor = n; else cursor = n; }
+  function pPool() { return mode === 'extended' ? EC : C; }
+  function pTotal() { return mode === 'extended' ? TOTAL_EXTENDED : TOTAL_MATCHUPS; }
 
   /* ---------- helpers ---------- */
   function initials(name) {
@@ -95,14 +125,25 @@
     store[key] = entry;
     try { localStorage.setItem(STORAGE_LOCAL_VOTES, JSON.stringify(store)); } catch {}
   }
+  function undoLocalVote(aId, bId, pickedId) {
+    const store = loadLocalVotes();
+    const key = pairKey(aId, bId);
+    const entry = store[key];
+    if (!entry) return;
+    entry[pickedId] = Math.max(0, (entry[pickedId] || 0) - 1);
+    store[key] = entry;
+    try { localStorage.setItem(STORAGE_LOCAL_VOTES, JSON.stringify(store)); } catch {}
+  }
 
   /* ---------- matchup generation ----------
    * Two shuffled lists paired up; rotate to remove self-pairs so each
    * candidate appears exactly twice.
    */
-  function buildMatchups() {
-    let a = shuffle(C);
-    let b = shuffle(C);
+  function buildMatchups(pool, totalCount) {
+    pool = pool || C;
+    totalCount = totalCount || TOTAL_MATCHUPS;
+    let a = shuffle(pool);
+    let b = shuffle(pool);
     for (let i = 0; i < a.length; i++) {
       if (a[i].id === b[i].id) {
         const j = (i + 1) % a.length;
@@ -113,18 +154,19 @@
         }
       }
     }
-    return a.map((x, i) => ({ a: x, b: b[i] })).slice(0, TOTAL_MATCHUPS);
+    return a.map((x, i) => ({ a: x, b: b[i] })).slice(0, totalCount);
   }
 
   /* ---------- Elo ---------- */
   function applyElo(winnerId, loserId) {
-    const Rw = ratings[winnerId], Rl = ratings[loserId];
+    const r = pRatings(), w = pWins(), n = pAppearances();
+    const Rw = r[winnerId], Rl = r[loserId];
     const Ew = 1 / (1 + Math.pow(10, (Rl - Rw) / 400));
-    ratings[winnerId] = Rw + K * (1 - Ew);
-    ratings[loserId]  = Rl + K * (0 - (1 - Ew));
-    wins[winnerId]    += 1;
-    appearances[winnerId] += 1;
-    appearances[loserId]  += 1;
+    r[winnerId] = Rw + K * (1 - Ew);
+    r[loserId]  = Rl + K * (0 - (1 - Ew));
+    w[winnerId]    += 1;
+    n[winnerId] += 1;
+    n[loserId]  += 1;
   }
 
   /* ---------- stats: simulated "crowd opinion" for a pair ---------- */
@@ -259,17 +301,34 @@
   function renderProgress() {
     const pill = $('#progress');
     pill.hidden = false;
-    $('#progress-text').textContent = `${Math.min(cursor + 1, TOTAL_MATCHUPS)} / ${TOTAL_MATCHUPS}`;
-    const pct = Math.min(100, (cursor / TOTAL_MATCHUPS) * 100);
+    const total = pTotal();
+    const c = pCursor();
+    const labelPrefix = mode === 'extended' ? 'Round 2 · ' : '';
+    $('#progress-text').textContent = `${labelPrefix}${Math.min(c + 1, total)} / ${total}`;
+    const pct = Math.min(100, (c / total) * 100);
     $('#progress-fill').style.width = pct + '%';
   }
 
   function renderMatchup() {
-    if (cursor >= matchups.length) return showResults();
-    const m = matchups[cursor];
+    const ms = pMatchups();
+    const c = pCursor();
+    if (c >= ms.length) return endOfRound();
+    const m = ms[c];
     renderCard('a', m.a);
     renderCard('b', m.b);
     renderProgress();
+  }
+
+  function endOfRound() {
+    if (mode === 'extended') {
+      extendedDone = true;
+      mode = 'main';
+      $('#progress').hidden = true;
+      show('results');
+      renderExtendedRanking();
+    } else {
+      showResults();
+    }
   }
 
   /* ---------- card flip ---------- */
@@ -300,11 +359,22 @@
     const pickedCard = $('#card-' + pickedSlot);
     if (pickedCard && pickedCard.classList.contains('flipped')) return;
     unflipAll();
-    const m = matchups[cursor];
+    const m = pMatchups()[pCursor()];
     const picked = pickedSlot === 'a' ? m.a : m.b;
     const lost   = pickedSlot === 'a' ? m.b : m.a;
+    // Snapshot pre-vote rating before applyElo mutates it; used by goBack().
+    const prevRatingPicked = pRatings()[picked.id];
+    const prevRatingLost   = pRatings()[lost.id];
     applyElo(picked.id, lost.id);
     saveLocalVote(m.a.id, m.b.id, picked.id);
+    voteHistory.push({
+      type: 'vote',
+      cursor: pCursor(),
+      aId: m.a.id, bId: m.b.id,
+      pickedId: picked.id, lostId: lost.id,
+      prevRatingPicked, prevRatingLost,
+    });
+    renderBackBtn();
 
     // pick animation
     $('#card-' + pickedSlot).classList.add('picked');
@@ -312,18 +382,50 @@
 
     advancing = true;
     showStatOverlay(m, picked.id, () => {
-      cursor += 1;
+      setCursor(pCursor() + 1);
       advancing = false;
-      if (cursor >= matchups.length) showResults();
+      if (pCursor() >= pMatchups().length) endOfRound();
       else renderMatchup();
     });
   }
 
   function skip() {
     if (advancing) return;
-    cursor += 1;
-    if (cursor >= matchups.length) showResults();
+    voteHistory.push({ type: 'skip', cursor: pCursor() });
+    setCursor(pCursor() + 1);
+    if (pCursor() >= pMatchups().length) endOfRound();
     else renderMatchup();
+    renderBackBtn();
+  }
+
+  function goBack() {
+    // If the stat overlay is still showing from the just-cast vote,
+    // cancel the pending advance — cursor hasn't moved yet.
+    if (advancing) {
+      clearTimeout(overlayTimer);
+      $('#stat-overlay').classList.remove('show');
+      advancing = false;
+    }
+    if (!voteHistory.length) return;
+    const h = voteHistory.pop();
+    if (h.type === 'vote') {
+      const r = pRatings(), w = pWins(), n = pAppearances();
+      r[h.pickedId] = h.prevRatingPicked;
+      r[h.lostId]   = h.prevRatingLost;
+      w[h.pickedId] = Math.max(0, (w[h.pickedId] || 0) - 1);
+      n[h.pickedId] = Math.max(0, (n[h.pickedId] || 0) - 1);
+      n[h.lostId]   = Math.max(0, (n[h.lostId]   || 0) - 1);
+      undoLocalVote(h.aId, h.bId, h.pickedId);
+    }
+    setCursor(h.cursor);
+    renderMatchup();
+    renderBackBtn();
+  }
+
+  function renderBackBtn() {
+    const btn = $('#back-btn');
+    if (!btn) return;
+    btn.hidden = voteHistory.length === 0;
   }
 
   /* ---------- stat overlay ---------- */
@@ -371,9 +473,14 @@
     if (o.classList.contains('show') && o.contains(e.target)) {
       clearTimeout(overlayTimer);
       o.classList.remove('show');
-      setTimeout(() => { if (advancing) { advancing = false; cursor += 1;
-        if (cursor >= matchups.length) showResults(); else renderMatchup();
-      } }, 150);
+      setTimeout(() => {
+        if (advancing) {
+          advancing = false;
+          setCursor(pCursor() + 1);
+          if (pCursor() >= pMatchups().length) endOfRound();
+          else renderMatchup();
+        }
+      }, 150);
     }
   });
 
@@ -381,6 +488,12 @@
   function rankedList() {
     return C.slice()
       .map(c => ({ c, r: ratings[c.id], w: wins[c.id], n: appearances[c.id] }))
+      .sort((x, y) => y.r - x.r || y.w - x.w);
+  }
+
+  function extRankedList() {
+    return EC.slice()
+      .map(c => ({ c, r: extRatings[c.id], w: extWins[c.id], n: extAppearances[c.id] }))
       .sort((x, y) => y.r - x.r || y.w - x.w);
   }
 
@@ -421,12 +534,69 @@
     $('#toggle-full-btn').textContent = 'Show full ranking ↓';
 
     renderShare(top5);
+    renderKeepRanking();
+    renderExtendedRanking();
+  }
+
+  /* ---------- extended ranking ---------- */
+  function renderKeepRanking() {
+    const wrap = $('#keep-ranking');
+    if (!wrap) return;
+    if (EC.length === 0 || extendedDone) {
+      wrap.hidden = true;
+      return;
+    }
+    wrap.hidden = false;
+    const btn = $('#keep-ranking-btn');
+    btn.textContent = `Keep ranking — ${EC.length} more candidates ↓`;
+  }
+
+  function renderExtendedRanking() {
+    const wrap = $('#extended-ranking');
+    if (!wrap) return;
+    if (!extendedDone) {
+      wrap.hidden = true;
+      return;
+    }
+    wrap.hidden = false;
+    const list = extRankedList();
+    $('#extended-rows').innerHTML = list.map((row, i) => `
+      <div class="rank-row" data-cid="${row.c.id}" role="button" tabindex="0" aria-label="More about ${escapeHtml(row.c.name)}">
+        <div class="rank-num">${i + 1}</div>
+        ${avatarHtml(row.c, 'sm')}
+        <div class="rank-info">
+          <div class="rank-name">
+            <span>${escapeHtml(row.c.name)}</span>
+            <span class="party-chip party-${row.c.party}"><span class="dot"></span>${row.c.party}</span>
+          </div>
+          <div class="rank-role">${escapeHtml(row.c.role)}</div>
+        </div>
+      </div>
+    `).join('');
+    renderShare(rankedList().slice(0, 5));
+  }
+
+  function startExtended() {
+    if (EC.length === 0) return;
+    mode = 'extended';
+    extCursor = 0;
+    for (const id of Object.keys(extRatings)) extRatings[id] = 1500;
+    for (const id of Object.keys(extWins)) extWins[id] = 0;
+    for (const id of Object.keys(extAppearances)) extAppearances[id] = 0;
+    extMatchups = buildMatchups(EC, EC.length);
+    // History does not survive a mode switch (can't undo across rounds).
+    voteHistory = [];
+    show('vote');
+    renderMatchup();
+    renderBackBtn();
+    // Hide stat overlay if it was lingering.
+    $('#stat-overlay').classList.remove('show');
   }
 
   /* ---------- candidate detail sheet (results screen) ---------- */
   let sheetReturnFocus = null;
   function openDetailSheet(cid) {
-    const c = byId[cid];
+    const c = byIdAll[cid];
     if (!c) return;
     const sheet = $('#detail-sheet');
     sheetReturnFocus = document.activeElement;
@@ -494,21 +664,36 @@
 
   function buildShareText(top5, url) {
     const grid = top5.map(r => partyEmoji(r.c.party)).join('');
-    const lines = top5.map((r, i) => `${i + 1}. ${partyEmoji(r.c.party)} ${r.c.name}`);
-    return [
+    const top5Lines = top5.map((r, i) => `${i + 1}. ${partyEmoji(r.c.party)} ${r.c.name}`);
+    const lines = [
       'The 2028 Ballot — my top 5',
       grid,
       '',
-      ...lines,
-      '',
-      `Rank yours: ${url}`,
-    ].join('\n');
+      ...top5Lines,
+    ];
+    if (extendedDone) {
+      const extList = extRankedList();
+      lines.push('');
+      lines.push(`+ long tail (${extList.length})`);
+      extList.forEach((r, i) => {
+        lines.push(`${i + 1}. ${partyEmoji(r.c.party)} ${r.c.name}`);
+      });
+    }
+    lines.push('');
+    lines.push(`Rank yours: ${url}`);
+    return lines.join('\n');
   }
 
   function shareUrl(top5) {
     const ids = top5.map(r => r.c.id).join(',');
     const u = new URL(window.location.href);
     u.searchParams.set('b', ids);
+    if (extendedDone) {
+      const extIds = extRankedList().map(r => r.c.id).join(',');
+      if (extIds) u.searchParams.set('x', extIds);
+    } else {
+      u.searchParams.delete('x');
+    }
     u.hash = '';
     return u.toString();
   }
@@ -549,39 +734,68 @@
   /* ---------- friend ballot intro ---------- */
   function readFriendBallot() {
     const u = new URL(window.location.href);
-    const raw = u.searchParams.get('b');
-    if (!raw) return null;
-    const ids = raw.split(',').map(s => s.trim()).filter(s => byId[s]).slice(0, 5);
-    return ids.length ? ids.map(id => byId[id]) : null;
+    const rawB = u.searchParams.get('b');
+    const rawX = u.searchParams.get('x');
+    if (!rawB) return null;
+    const ids = rawB.split(',').map(s => s.trim()).filter(s => byId[s]).slice(0, 5);
+    if (!ids.length) return null;
+    const extIds = rawX ? rawX.split(',').map(s => s.trim()).filter(s => byIdExt[s]) : [];
+    return {
+      top5: ids.map(id => byId[id]),
+      extended: extIds.map(id => byIdExt[id]),
+    };
   }
   function renderFriendIntro() {
     const friend = readFriendBallot();
     if (!friend) return;
+    const chip = (c, i) => `<span style="display:inline-flex;align-items:center;gap:6px;background:var(--surface-2);border-radius:99px;padding:4px 10px;font-size:13px;">${i+1}. ${partyEmoji(c.party)} ${escapeHtml(c.name)}</span>`;
     const wrap = document.createElement('div');
     wrap.style.cssText = 'background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin:18px 0;box-shadow:var(--shadow);';
+    const extBlock = friend.extended.length
+      ? `<div style="font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-muted);font-weight:600;margin:12px 0 6px;">Long tail (${friend.extended.length})</div>
+         <div style="display:flex;gap:6px;flex-wrap:wrap;">
+           ${friend.extended.map((c, i) => chip(c, i)).join('')}
+         </div>`
+      : '';
     wrap.innerHTML = `
       <div style="font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-muted);font-weight:600;margin-bottom:8px;">A friend's ballot</div>
-      <div style="font-size:16px;font-weight:600;margin-bottom:10px;">They picked these five — see if you agree.</div>
+      <div style="font-size:16px;font-weight:600;margin-bottom:10px;">They picked these — see if you agree.</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
-        ${friend.map((c, i) => `<span style="display:inline-flex;align-items:center;gap:6px;background:var(--surface-2);border-radius:99px;padding:4px 10px;font-size:13px;">${i+1}. ${partyEmoji(c.party)} ${escapeHtml(c.name)}</span>`).join('')}
-      </div>`;
+        ${friend.top5.map((c, i) => chip(c, i)).join('')}
+      </div>
+      ${extBlock}`;
     screens.start.querySelector('.hero').appendChild(wrap);
     $('#start-btn').textContent = 'Build my ballot →';
   }
 
   /* ---------- wiring ---------- */
   function start() {
+    mode = 'main';
+    extendedDone = false;
     matchups = buildMatchups();
     cursor = 0;
     for (const id of Object.keys(ratings)) ratings[id] = 1500;
     for (const id of Object.keys(wins)) wins[id] = 0;
     for (const id of Object.keys(appearances)) appearances[id] = 0;
+    for (const id of Object.keys(extRatings)) extRatings[id] = 1500;
+    for (const id of Object.keys(extWins)) extWins[id] = 0;
+    for (const id of Object.keys(extAppearances)) extAppearances[id] = 0;
+    extCursor = 0;
+    voteHistory = [];
+    const extWrap = $('#extended-ranking'); if (extWrap) extWrap.hidden = true;
     show('vote');
     renderMatchup();
+    renderBackBtn();
   }
 
   $('#start-btn').addEventListener('click', start);
   $('#restart-btn').addEventListener('click', () => { show('start'); $('#progress').hidden = true; });
+  // Wire keep-ranking CTA if present (rendered on results screen).
+  document.addEventListener('click', (e) => {
+    if (e.target && e.target.id === 'keep-ranking-btn') {
+      startExtended();
+    }
+  });
   function wireCard(slot) {
     const el = $('#card-' + slot);
     el.addEventListener('click', (e) => {
@@ -617,6 +831,7 @@
   wireCard('a');
   wireCard('b');
   $('#skip-btn').addEventListener('click', skip);
+  $('#back-btn').addEventListener('click', goBack);
   $('#toggle-full-btn').addEventListener('click', () => {
     const el = $('#full-ranking');
     const open = el.classList.toggle('show');
