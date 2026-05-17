@@ -45,6 +45,9 @@
         <span id="progress-text">0 / 0</span>
         <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
       </div>
+      <button class="mute-btn" id="mute-btn" type="button" aria-label="Toggle sound" aria-pressed="false">
+        <span class="mute-icon" aria-hidden="true">🔊</span>
+      </button>
     </header>
 
     <!-- Start -->
@@ -167,32 +170,6 @@
     </footer>
   </main>
 
-  <!-- After-vote stat overlay -->
-  <div class="stat-overlay" id="stat-overlay" aria-live="polite">
-    <div class="stat-card">
-      <p class="stat-headline" id="stat-headline">Most voters agree with you.</p>
-      <div class="stat-faces">
-        <div class="stat-face left">
-          <div class="avatar xs" id="stat-avatar-a"></div>
-          <span id="stat-name-a"></span>
-        </div>
-        <div class="stat-face right">
-          <div class="avatar xs" id="stat-avatar-b"></div>
-          <span id="stat-name-b"></span>
-        </div>
-      </div>
-      <div class="stat-bar">
-        <div class="seg" id="stat-seg-a"></div>
-        <div class="seg" id="stat-seg-b"></div>
-      </div>
-      <div class="stat-row">
-        <span><span id="stat-pct-a">0%</span> chose them</span>
-        <span><span id="stat-pct-b">0%</span> chose them</span>
-      </div>
-      <div class="stat-foot">based on simulated prior votes</div>
-    </div>
-  </div>
-
   <!-- Candidate detail sheet (used on results screen) -->
   <div class="detail-sheet" id="detail-sheet" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="detail-sheet-name">
     <div class="detail-sheet-panel" id="detail-sheet-panel">
@@ -231,6 +208,7 @@
   <script src="pics/manifest.js"></script>
   <script src="lib/glicko2.js"></script>
   <script src="lib/tier_cut.js"></script>
+  <script src="lib/sounds.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

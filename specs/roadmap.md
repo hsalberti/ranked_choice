@@ -8,12 +8,12 @@ at any boundary and still have a working product.
 
 - Vanilla HTML/CSS/JS at the repo root.
 - 25 candidates, Elo-style ranking, Wordle-shaped share text.
-- Stats overlay is seeded by a deterministic hash — not real data.
+- Stats overlay was seeded by a deterministic hash — retired in v2.1 (see "Honest vote reveal" below) in favor of real `/api/stats` data with an explicit empty state when data is missing.
 - Deep links via `?b=…` URL parameter.
 - Light + dark mode, keyboard navigation, mobile-first layout.
 
-**Known gaps:** stats are simulated, no persistence across devices, no
-country awareness, no abuse protection.
+**Known gaps:** ~~stats are simulated~~ *(addressed in v2.1)*, no persistence across devices, no
+country awareness *(addressed in v2)*, no abuse protection *(addressed in v1.5)*.
 
 ## Phase 0.5 — Extended ranking pool + public launch [done — 2026-05-16]
 
@@ -267,6 +267,55 @@ without a Lighthouse regression; `#/tiers` deep-links land on the
 standalone screen; PNG export downloads a valid 1200×630 image in
 Chrome / Safari / Firefox; explainer panel opens to either section
 without scrolling glitches.
+
+## v2.1 — Honest vote reveal [in progress — 2026-05-17]
+
+Goal: retire the seeded-fake `fetchPairStats()` from Phase 0 and turn
+the post-vote moment into a first-class data surface. The vote-flow
+overlay was always going to be the highest-engagement surface on the
+site; v2.1 is the cleanup that makes it deliver real data instead of
+plausible-looking fabricated numbers, and that puts the candidate's
+actual ELO + rank on the card the user just picked.
+
+- **Floating overlay deleted.** `#stat-overlay`, `showStatOverlay`,
+  `fetchPairStats`, `loadLocalVotes`/`saveLocalVote`/`undoLocalVote`,
+  the `STORAGE_LOCAL_VOTES` localStorage key, and the tap-overlay
+  click handler all removed. No flag, no transition period.
+- **In-card reveal.** The winning card's chrome tints to its party
+  color (`party-D` blue / `party-R` red / `party-I` neutral) while
+  the portrait stays at full saturation. The losing card dims to ~50%
+  opacity. A `.reveal-panel` below the existing card content shows
+  two data lines: `${elo} ELO · Rank #N` (or `· UNRANKED` if below
+  the 10-vote floor) and `Won against ${opponent} ${pct}% of ${N}
+  votes` (or `Early matchup — N votes so far` if pair has < 10
+  votes in scope).
+- **Real-data-only contract.** If `/api/stats` fails or
+  `API_REACHABLE === false`, the reveal still tints + dims but the
+  data lines stay empty. No fabrication, no fallback to seeded data.
+- **Extended `/api/stats`.** Response gains `elo: { [a], [b] }`,
+  `rank: { [a], [b] }`, and `scope: "GLOBAL"|<ISO2>`. Rank is the
+  candidate's 1-indexed global position among all candidates with
+  `SUM(n_ballots) >= 10`; below the floor it returns `null`. Scope
+  reflects whether the visitor's country has crossed a 10,000-vote
+  activation threshold; below that, GLOBAL is the displayed dataset.
+- **10-vote leaderboard floor.** `GET /api/elo?country=GLOBAL` now
+  enforces `n_ballots >= 10`; below-floor candidates are excluded
+  from leaderboard and rank computations.
+- **All-tier votes hit the backend.** The prior Tier-1-only gate on
+  `postRemoteVote()` is dropped — Tier 2/3 votes also contribute to
+  global ELO and pair_aggregates. The 10-vote floor protects against
+  noise from rarely-seen pairs.
+- **Sound layer.** New `lib/sounds.js` exposes `Sounds.pickClick()`
+  and `Sounds.resolvedChime()` synthesized via WebAudio (zero asset
+  payload). Mute toggle in the topbar persists to
+  `ballot28.muted.v1`; default is unmuted.
+
+**Exit criteria:** `./scripts/check-stats-elo.sh` and
+`./scripts/check-elo-floor.sh` both pass against the deployed Worker;
+manual smoke confirms the reveal renders party tint + ELO + rank +
+pair line on Tier 1/2/3 votes; sound plays once per vote; mute toggle
+persists across reloads; offline mode still renders the visual reveal
+without data lines.
 
 ## Phase 7 — Beyond MVP
 

@@ -239,6 +239,9 @@ export async function handleElo(
     let rows: Row[];
     if (country === 'GLOBAL') {
       // Weighted average ELO across countries: Σ(elo · n) / Σ(n).
+      // 10-vote floor: candidates with fewer than ELO_RANK_FLOOR total
+      // ballots are excluded from the global leaderboard (and from the
+      // rank denominator in /api/stats).
       const res = await env.DB.prepare(`
         SELECT candidate_id,
                SUM(elo * n_ballots) * 1.0 / SUM(n_ballots) AS elo,
@@ -247,7 +250,8 @@ export async function handleElo(
         FROM candidate_country_elo
         WHERE n_ballots > 0
         GROUP BY candidate_id
-      `).all<Row>();
+        HAVING SUM(n_ballots) >= ?
+      `).bind(ELO_RANK_FLOOR).all<Row>();
       rows = res.results;
     } else {
       const res = await env.DB.prepare(`
@@ -283,12 +287,49 @@ export async function handleElo(
 
 // ----- GET /api/stats?a=X&b=Y ----------------------------------------
 //
-// Response: { country, local: { [id]: n }, global: { [id]: n }, total: { local, global } }
+// Response: {
+//   country, pair_key, scope,
+//   local: { [id]: n }, global: { [id]: n },
+//   total: { local, global },
+//   elo:   { [a]: number|null, [b]: number|null },
+//   rank:  { [a]: number|null, [b]: number|null },
+// }
 // `local` is the visitor's country; `global` is every country summed.
+// `scope` is the visitor's country code when that country has crossed
+// the activation threshold; otherwise "GLOBAL". `elo` is the weighted
+// global average per candidate (null if no votes yet). `rank` is each
+// candidate's 1-indexed global rank computed over candidates with
+// SUM(n_ballots) >= ELO_RANK_FLOOR (null if self is below the floor).
+
+const ELO_RANK_FLOOR = 10;
+const COUNTRY_ACTIVATION_THRESHOLD = 10_000;
+const COUNTRY_TOTAL_TTL_MS = 5 * 60 * 1000;
+
+// Worker isolate-local cache. Stale entries are tolerated; correctness
+// of the activation threshold does not depend on second-level accuracy.
+const countryTotalCache = new Map<string, { total: number; expiresAt: number }>();
+
+async function getCountryTotal(env: Env, country: string): Promise<number> {
+  const now = Date.now();
+  const cached = countryTotalCache.get(country);
+  if (cached && cached.expiresAt > now) return cached.total;
+  const res = await env.DB.prepare(
+    `SELECT COALESCE(SUM(votes), 0) AS total FROM pair_aggregates WHERE country = ?`,
+  ).bind(country).first<{ total: number }>();
+  const total = Number(res?.total ?? 0);
+  countryTotalCache.set(country, { total, expiresAt: now + COUNTRY_TOTAL_TTL_MS });
+  return total;
+}
 
 interface CountRow {
   picked_id: string;
   votes: number;
+}
+
+interface AggregateEloRow {
+  candidate_id: string;
+  elo: number;
+  n: number;
 }
 
 export async function handleStats(
@@ -316,7 +357,19 @@ export async function handleStats(
       WHERE pair_key = ?
       GROUP BY picked_id
     `).bind(key);
-    const [localRes, globalRes] = await env.DB.batch<CountRow>([localQuery, globalQuery]);
+    const eloAggregateQuery = env.DB.prepare(`
+      SELECT candidate_id,
+             SUM(elo * n_ballots) * 1.0 / SUM(n_ballots) AS elo,
+             SUM(n_ballots) AS n
+      FROM candidate_country_elo
+      WHERE n_ballots > 0
+      GROUP BY candidate_id
+    `);
+    const [pairBatchRes, eloAggRes] = await Promise.all([
+      env.DB.batch<CountRow>([localQuery, globalQuery]),
+      eloAggregateQuery.all<AggregateEloRow>(),
+    ]);
+    const [localRes, globalRes] = pairBatchRes;
 
     // pair_key WHERE clause restricts picked_id to {a, b}; POST /api/vote
     // validates picked ∈ {a, b} before insert, so no further guard needed.
@@ -325,14 +378,52 @@ export async function handleStats(
     const global: Record<string, number> = { [a]: 0, [b]: 0 };
     for (const row of globalRes.results) global[row.picked_id] = row.votes;
 
+    // Build per-candidate aggregate map for ELO + rank computation.
+    const aggByCand = new Map<string, { elo: number; n: number }>();
+    for (const row of eloAggRes.results) {
+      aggByCand.set(row.candidate_id, { elo: Number(row.elo), n: Number(row.n) });
+    }
+
+    function eloFor(id: string): number | null {
+      const agg = aggByCand.get(id);
+      return agg && agg.n > 0 ? Math.round(agg.elo) : null;
+    }
+    function rankFor(id: string): number | null {
+      const self = aggByCand.get(id);
+      if (!self || self.n < ELO_RANK_FLOOR) return null;
+      let higher = 0;
+      for (const other of aggByCand.values()) {
+        if (other.n >= ELO_RANK_FLOOR && other.elo > self.elo) higher += 1;
+      }
+      return higher + 1;
+    }
+
+    // Country activation: only honor country scope if the visitor's
+    // country has crossed the threshold. 'ZZ' (unknown / localhost)
+    // always degrades to GLOBAL.
+    let scope: string = 'GLOBAL';
+    if (country !== 'ZZ') {
+      const countryTotal = await getCountryTotal(env, country);
+      if (countryTotal >= COUNTRY_ACTIVATION_THRESHOLD) scope = country;
+    }
+
     return json({
       country,
       pair_key: key,
+      scope,
       local,
       global,
       total: {
         local: local[a] + local[b],
         global: global[a] + global[b],
+      },
+      elo: {
+        [a]: eloFor(a),
+        [b]: eloFor(b),
+      },
+      rank: {
+        [a]: rankFor(a),
+        [b]: rankFor(b),
       },
     }, 200, origin);
   } catch (err) {

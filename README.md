@@ -182,6 +182,41 @@ ADMIN_TOKEN="$(cat api/.dev.vars | grep ADMIN_TOKEN | cut -d= -f2)" \
 ./scripts/test_multiuser.sh https://your-worker.dev    # against prod, does NOT wipe
 ```
 
+```bash
+# honest-vote-reveal smoke (v2.1): verifies the extended /api/stats
+# response shape (elo + rank + scope), the 10-vote leaderboard floor,
+# and that T2/T3 votes reach the backend.
+./scripts/check-stats-elo.sh                           # local
+./scripts/check-elo-floor.sh                           # local
+./scripts/check-tier-vote-flow.sh                      # local
+# Pass an explicit URL to hit prod: ./scripts/check-stats-elo.sh https://...
+```
+
+### `/api/stats` response (v2.1)
+
+```json
+{
+  "country":  "US",                          // visitor's country code
+  "pair_key": "newsom|vance",
+  "scope":    "GLOBAL",                       // or ISO-2 once country crosses 10k votes
+  "local":    { "vance": 12, "newsom": 8 },   // visitor's-country pair counts
+  "global":   { "vance": 41, "newsom": 17 },  // all-country pair counts
+  "total":    { "local": 20, "global": 58 },
+  "elo":      { "vance": 1612, "newsom": 1388 }, // weighted-global ELO, null if 0 votes
+  "rank":     { "vance": 2,    "newsom": 5    } // 1-indexed global rank, null if n_ballots < 10
+}
+```
+
+The `scope` field selects which dataset the frontend displays:
+- `"GLOBAL"` → render `global` counts and `total.global` (default;
+  applies until the visitor's country crosses the 10,000-vote
+  activation threshold).
+- ISO-2 country (e.g. `"US"`) → render `local` counts and `total.local`.
+
+Rank is computed against the global leaderboard, gated by a 10-vote
+`n_ballots` floor — candidates below the floor return `null` and are
+also excluded from the rank-counting denominator.
+
 ### Quick admin queries (D1)
 
 ```bash

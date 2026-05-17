@@ -1,12 +1,13 @@
 /* The 2028 Ballot - app.js
  *
- * Pure-browser ranked-choice toy ballot. Walks the user through ~25
- * pairwise matchups, runs an Elo-style update to produce a ranking,
- * and shares a Wordle-shaped summary + a URL that encodes the picks.
+ * Pure-browser ranked-choice toy ballot. Walks the user through pairwise
+ * matchups, runs Glicko-2 to produce a ranking, and shares a Wordle-shaped
+ * summary + a URL that encodes the picks.
  *
- * The "what other voters chose" overlay is a deterministic, hash-seeded
- * estimate — there is no backend. Swap fetchPairStats() for a real
- * endpoint to make it live.
+ * The post-vote reveal tints the winner's card in their party color and
+ * shows the candidate's real ELO + global rank + pair-win statistics from
+ * the backend (`GET /api/stats`). If the backend is unreachable, the card
+ * still tints but no statistics are shown — we never fabricate.
  */
 
 (function () {
@@ -23,8 +24,8 @@
   };
   const ADAPTIVE_P_CLOSE = 0.7; // 70% close-rated, 30% random after R2
   const DYNAMIC_OPENER = false; // v1: fixed Vance vs. Newsom opener
-  const STORAGE_LOCAL_VOTES = 'ballot28.localvotes.v1';
   const STORAGE_EVENTS = 'ballot28.events.v1';
+  const REVEAL_MS = 1500;
 
   // ---- API base URL --------------------------------------------------
   // Auto-detect: localhost dev → local wrangler dev on 8787,
@@ -209,8 +210,12 @@
     })).catch(() => {});
   }
 
-  /* ---------- remote pair stats (replaces seeded estimate when reachable) ---------- */
-  function fetchRemotePairStats(aId, bId) {
+  /* ---------- pair stats for the post-vote reveal ----------
+   * Real data only. If the backend is unreachable or the request fails,
+   * returns null and the reveal renders without statistics — we never
+   * substitute a seeded estimate.
+   */
+  function fetchStatsForReveal(aId, bId) {
     if (!API_REACHABLE) return Promise.resolve(null);
     const u = new URL(`${API_BASE_URL}/api/stats`);
     u.searchParams.set('a', aId);
@@ -218,28 +223,6 @@
     return apiFetch(u.pathname + '?' + u.searchParams.toString(), {
       method: 'GET',
     }).then(r => r.ok ? r.json() : null).catch(() => null);
-  }
-
-  function loadLocalVotes() {
-    try { return JSON.parse(localStorage.getItem(STORAGE_LOCAL_VOTES) || '{}'); }
-    catch { return {}; }
-  }
-  function saveLocalVote(aId, bId, pickedId) {
-    const store = loadLocalVotes();
-    const key = pairKey(aId, bId);
-    const entry = store[key] || { [aId]: 0, [bId]: 0 };
-    entry[pickedId] = (entry[pickedId] || 0) + 1;
-    store[key] = entry;
-    try { localStorage.setItem(STORAGE_LOCAL_VOTES, JSON.stringify(store)); } catch {}
-  }
-  function undoLocalVote(aId, bId, pickedId) {
-    const store = loadLocalVotes();
-    const key = pairKey(aId, bId);
-    const entry = store[key];
-    if (!entry) return;
-    entry[pickedId] = Math.max(0, (entry[pickedId] || 0) - 1);
-    store[key] = entry;
-    try { localStorage.setItem(STORAGE_LOCAL_VOTES, JSON.stringify(store)); } catch {}
   }
 
   /* ---------- smart matchup engine ----------
@@ -357,35 +340,6 @@
       if (loThis <= hiNext) return false; // CIs overlap — not done yet
     }
     return true;
-  }
-
-  /* ---------- stats: simulated "crowd opinion" for a pair ---------- */
-  function fetchPairStats(aId, bId, lastPick) {
-    // deterministic base split derived from id hash, biased a bit toward
-    // a plausible 35-65% spread; layered with the user's own local tally
-    const key = pairKey(aId, bId);
-    const seed = hashStr(key);
-    const baseFraction = 0.35 + ((seed % 3000) / 3000) * 0.30; // 0.35..0.65 for whichever id sorts first
-    const [first] = key.split('|');
-    let pctA = (first === aId) ? baseFraction : 1 - baseFraction;
-    let pctB = 1 - pctA;
-
-    // simulated prior turnout in the 200-1200 range, also deterministic
-    const baseTotal = 200 + (seed % 1000);
-    let votesA = Math.round(pctA * baseTotal);
-    let votesB = Math.round(pctB * baseTotal);
-
-    // overlay any local tally so repeat users see their effect
-    const local = loadLocalVotes()[key];
-    if (local) { votesA += local[aId] || 0; votesB += local[bId] || 0; }
-    if (lastPick === aId) votesA += 1; else if (lastPick === bId) votesB += 1;
-
-    const tot = votesA + votesB;
-    return {
-      pctA: votesA / tot,
-      pctB: votesB / tot,
-      total: tot,
-    };
   }
 
   /* ---------- rendering ---------- */
@@ -545,6 +499,7 @@
               ${c.resume.map(line => `<li>${escapeHtml(line)}</li>`).join('')}
             </ul>` : ''}
           <div class="tap-more">Tap to pick · ⓘ for more</div>
+          <div class="reveal-panel" aria-hidden="true"></div>
         </div>
         <div class="card-face back" aria-hidden="true">
           <button class="flip-back-btn" type="button" data-action="unflip" aria-label="Back to card">← Back</button>
@@ -624,10 +579,8 @@
       lRating: ratings[lost.id],   lRd: rd[lost.id],   lSigma: sigma[lost.id],
     };
     applyGlicko(picked.id, lost.id);
-    saveLocalVote(m.a.id, m.b.id, picked.id);
-    // Tier-1 votes are sent to the backend (drives crowd ELO + pair_aggregates).
-    // Tier-2/3 stay local-only — they're refinement votes for the personal ballot.
-    if (activeTier === 1) postRemoteVote(m.a.id, m.b.id, picked.id);
+    // All-tier votes hit the backend (drives crowd ELO + pair_aggregates).
+    postRemoteVote(m.a.id, m.b.id, picked.id);
     voteHistory.push({
       aId: m.a.id, bId: m.b.id,
       pickedId: picked.id, lostId: lost.id,
@@ -637,15 +590,11 @@
     totalVoteCount += 1;
     renderBackBtn();
 
-    // pick animation
-    $('#card-' + pickedSlot).classList.add('picked');
-    $('#card-' + (pickedSlot === 'a' ? 'b' : 'a')).classList.add('dimmed');
+    // Pick sound (suppressed by user mute toggle).
+    if (window.Sounds) window.Sounds.pickClick();
 
     advancing = true;
-    showStatOverlay(m, picked.id, () => {
-      advancing = false;
-      renderMatchup();
-    });
+    revealVote(m, pickedSlot);
   }
 
   function skip() {
@@ -657,11 +606,10 @@
   }
 
   function goBack() {
-    // If the stat overlay is still showing from the just-cast vote, cancel
-    // the pending advance — we haven't picked the next matchup yet.
+    // If a reveal is still showing from the just-cast vote, cancel the
+    // pending advance — we haven't picked the next matchup yet.
     if (advancing) {
-      clearTimeout(overlayTimer);
-      $('#stat-overlay').classList.remove('show');
+      clearRevealState();
       advancing = false;
     }
     if (!voteHistory.length) return;
@@ -677,8 +625,8 @@
     appearances[h.lostId]   = Math.max(0, (appearances[h.lostId]   || 0) - 1);
     votesThisTier = Math.max(0, votesThisTier - 1);
     totalVoteCount = Math.max(0, totalVoteCount - 1);
-    undoLocalVote(h.aId, h.bId, h.pickedId);
-    // Re-display the matchup the user came from.
+    // Re-display the matchup the user came from. renderCard() resets
+    // the .picked / .dimmed / .party-* classes from the prior reveal.
     currentMatchup = { a: byIdAll[h.aId], b: byIdAll[h.bId] };
     renderCard('a', currentMatchup.a);
     renderCard('b', currentMatchup.b);
@@ -692,92 +640,121 @@
     btn.hidden = voteHistory.length === 0;
   }
 
-  /* ---------- stat overlay ---------- */
-  let overlayTimer = null;
-  let overlayContext = null; // { aId, bId, pickedId } — guards async remote update
-  function showStatOverlay(m, pickedId, after) {
-    const stats = fetchPairStats(m.a.id, m.b.id, pickedId);
-    overlayContext = { aId: m.a.id, bId: m.b.id, pickedId };
-    const overlay = $('#stat-overlay');
-    $('#stat-avatar-a').outerHTML = avatarHtml(m.a, 'xs').replace('class="avatar', 'id="stat-avatar-a" class="avatar');
-    $('#stat-avatar-b').outerHTML = avatarHtml(m.b, 'xs').replace('class="avatar', 'id="stat-avatar-b" class="avatar');
-    $('#stat-name-a').textContent = m.a.name.split(' ').slice(-1)[0];
-    $('#stat-name-b').textContent = m.b.name.split(' ').slice(-1)[0];
-
-    $('#stat-seg-a').className = 'seg party-' + m.a.party;
-    $('#stat-seg-b').className = 'seg party-' + m.b.party;
-    $('#stat-seg-a').style.width = '0%';
-    $('#stat-seg-b').style.width = '0%';
-
-    const pctA = Math.round(stats.pctA * 100);
-    const pctB = 100 - pctA;
-    $('#stat-pct-a').textContent = pctA + '%';
-    $('#stat-pct-b').textContent = pctB + '%';
-
-    const youSide = pickedId === m.a.id ? 'a' : 'b';
-    const yourPct = youSide === 'a' ? pctA : pctB;
-    const headline = yourPct >= 60 ? `You're with the majority — ${yourPct}% picked ${(youSide === 'a' ? m.a : m.b).name.split(' ').slice(-1)[0]}.`
-                    : yourPct >= 50 ? `It's close — ${yourPct}% leaned your way.`
-                    : yourPct >= 40 ? `Bit of a split — ${100 - yourPct}% went the other direction.`
-                    : `You're in the minority — only ${yourPct}% picked them.`;
-    $('#stat-headline').textContent = headline;
-
-    overlay.classList.add('show');
-    requestAnimationFrame(() => {
-      $('#stat-seg-a').style.width = pctA + '%';
-      $('#stat-seg-b').style.width = pctB + '%';
-    });
-    clearTimeout(overlayTimer);
-    overlayTimer = setTimeout(() => {
-      overlay.classList.remove('show');
-      overlayContext = null;
-      setTimeout(after, 180);
-    }, 1700);
-
-    // Best-effort: replace the seeded estimate with real backend stats
-    // if they arrive while the overlay is still on screen. Tier 1 only
-    // (Tier 2/3 votes are local refinements, not sent to the backend).
-    if (activeTier === 1) {
-      fetchRemotePairStats(m.a.id, m.b.id).then(real => {
-        if (!real) return;
-        if (!overlayContext) return; // overlay already dismissed
-        if (overlayContext.aId !== m.a.id || overlayContext.bId !== m.b.id) return;
-        // Local +1 in case our own POST /api/vote hasn't been counted yet.
-        const localA = (real.local[m.a.id] || 0) + (pickedId === m.a.id ? 1 : 0);
-        const localB = (real.local[m.b.id] || 0) + (pickedId === m.b.id ? 1 : 0);
-        const tot = localA + localB;
-        if (tot < 5) return; // too noisy, keep the seeded display
-        const rPctA = Math.round((localA / tot) * 100);
-        const rPctB = 100 - rPctA;
-        $('#stat-pct-a').textContent = rPctA + '%';
-        $('#stat-pct-b').textContent = rPctB + '%';
-        $('#stat-seg-a').style.width = rPctA + '%';
-        $('#stat-seg-b').style.width = rPctB + '%';
-        const sf = document.querySelector('.stat-foot');
-        if (sf) sf.textContent = `based on ${tot} votes in ${countryHint || real.country}`;
-        const yourPctReal = pickedId === m.a.id ? rPctA : rPctB;
-        const winnerName = (pickedId === m.a.id ? m.a : m.b).name.split(' ').slice(-1)[0];
-        const hl = yourPctReal >= 60 ? `You're with the majority — ${yourPctReal}% picked ${winnerName}.`
-                  : yourPctReal >= 50 ? `It's close — ${yourPctReal}% leaned your way.`
-                  : yourPctReal >= 40 ? `Bit of a split — ${100 - yourPctReal}% went the other direction.`
-                  : `You're in the minority — only ${yourPctReal}% picked them.`;
-        $('#stat-headline').textContent = hl;
-      });
+  /* ---------- in-card reveal ----------
+   * After a vote, the winning card tints to its party color (chrome
+   * only — portrait stays full color) and the losing card dims. Two
+   * data lines populate via /api/stats: ELO + rank, and pair-win
+   * percentage. Real data only; null response leaves the lines empty.
+   * Advances after REVEAL_MS or on tap-anywhere-on-cards.
+   */
+  let advanceTimer = null;
+  let revealContext = null; // { aId, bId, pickedId } — guards async stats response
+  function clearRevealState() {
+    clearTimeout(advanceTimer);
+    advanceTimer = null;
+    revealContext = null;
+    for (const slot of ['a', 'b']) {
+      const card = $('#card-' + slot);
+      if (!card) continue;
+      card.classList.remove('picked', 'dimmed', 'party-D', 'party-R', 'party-I');
+      const panel = card.querySelector('.reveal-panel');
+      if (panel) panel.innerHTML = '';
     }
   }
-  // tap overlay to advance faster
-  document.addEventListener('click', (e) => {
-    const o = $('#stat-overlay');
-    if (o.classList.contains('show') && o.contains(e.target)) {
-      clearTimeout(overlayTimer);
-      o.classList.remove('show');
+  function lastName(name) { return name.split(' ').slice(-1)[0]; }
+  function formatNumber(n) { return Number(n).toLocaleString('en-US'); }
+  function revealVote(m, pickedSlot) {
+    const picked = pickedSlot === 'a' ? m.a : m.b;
+    const lostSlot = pickedSlot === 'a' ? 'b' : 'a';
+    const lost = pickedSlot === 'a' ? m.b : m.a;
+    revealContext = { aId: m.a.id, bId: m.b.id, pickedId: picked.id };
+
+    // Apply visual reveal classes. Reuses the existing .picked / .dimmed
+    // pair animation classes; adds .party-<P> on the winner for tint.
+    const pickedCard = $('#card-' + pickedSlot);
+    const lostCard   = $('#card-' + lostSlot);
+    pickedCard.classList.add('picked', 'party-' + picked.party);
+    lostCard.classList.add('dimmed');
+
+    // Render with no stats first so layout settles immediately, then
+    // overlay real data once /api/stats returns.
+    renderRevealPanels(m, pickedSlot, null);
+    fetchStatsForReveal(m.a.id, m.b.id).then(stats => {
+      // Guard: user may have advanced past this matchup already.
+      if (!revealContext) return;
+      if (revealContext.aId !== m.a.id || revealContext.bId !== m.b.id) return;
+      renderRevealPanels(m, pickedSlot, stats);
+    });
+
+    // Resolved chime fires once the reveal has been on-screen briefly.
+    if (window.Sounds) {
       setTimeout(() => {
-        if (advancing) {
-          advancing = false;
-          renderMatchup();
-        }
-      }, 150);
+        if (revealContext) window.Sounds.resolvedChime();
+      }, 350);
     }
+
+    clearTimeout(advanceTimer);
+    advanceTimer = setTimeout(advanceFromReveal, REVEAL_MS);
+  }
+  function advanceFromReveal() {
+    if (!advancing) return;
+    clearRevealState();
+    advancing = false;
+    renderMatchup();
+  }
+  function renderRevealPanels(m, pickedSlot, stats) {
+    const pickedId = pickedSlot === 'a' ? m.a.id : m.b.id;
+    for (const slot of ['a', 'b']) {
+      const c = slot === 'a' ? m.a : m.b;
+      const isWinner = c.id === pickedId;
+      const panel = $('#card-' + slot + ' .reveal-panel');
+      if (!panel) continue;
+      if (!stats) { panel.innerHTML = ''; continue; }
+      panel.innerHTML = revealPanelHtml(c, isWinner, stats, m);
+    }
+  }
+  function revealPanelHtml(c, isWinner, stats, m) {
+    const elo = stats.elo ? stats.elo[c.id] : null;
+    const rank = stats.rank ? stats.rank[c.id] : null;
+    // Line 1: ELO + rank (or UNRANKED if below floor).
+    let line1;
+    if (elo == null) {
+      line1 = 'UNRANKED';
+    } else if (rank == null) {
+      line1 = `${elo} ELO · UNRANKED`;
+    } else {
+      line1 = `${elo} ELO · Rank #${rank}`;
+    }
+    // Line 2: pair-win statistic on the winner card only.
+    let line2 = '';
+    if (isWinner) {
+      const scope = stats.scope || 'GLOBAL';
+      const useCountry = scope !== 'GLOBAL';
+      const counts = useCountry ? (stats.local || {}) : (stats.global || {});
+      const totalSource = useCountry ? (stats.total && stats.total.local) : (stats.total && stats.total.global);
+      const total = Number(totalSource || 0);
+      const opponent = c.id === m.a.id ? m.b : m.a;
+      if (total < 10) {
+        line2 = `Early matchup — ${total} ${total === 1 ? 'vote' : 'votes'} so far`;
+      } else {
+        const winnerVotes = Number(counts[c.id] || 0);
+        const pct = Math.round((winnerVotes / total) * 100);
+        const suffix = useCountry ? ` in ${scope}` : '';
+        line2 = `Won against ${lastName(opponent.name)} ${pct}% of ${formatNumber(total)} votes${suffix}`;
+      }
+    }
+    return `
+      <div class="reveal-line reveal-elo">${escapeHtml(line1)}</div>
+      ${line2 ? `<div class="reveal-line reveal-pair">${escapeHtml(line2)}</div>` : ''}
+    `;
+  }
+
+  // Tap anywhere on either card during the reveal advances immediately.
+  document.addEventListener('click', (e) => {
+    if (!advancing) return;
+    const card = e.target.closest && e.target.closest('#card-a, #card-b');
+    if (!card) return;
+    advanceFromReveal();
   });
 
   /* ---------- results ----------
@@ -910,7 +887,7 @@
     show('vote');
     renderMatchup();
     renderBackBtn();
-    $('#stat-overlay').classList.remove('show');
+    clearRevealState();
   }
 
   /* ---------- candidate detail sheet (results screen) ---------- */
@@ -1652,6 +1629,22 @@
 
   $('#start-btn').addEventListener('click', start);
   $('#restart-btn').addEventListener('click', () => { show('start'); $('#progress').hidden = true; });
+  // Mute toggle (persisted by lib/sounds.js).
+  (function wireMuteToggle() {
+    const btn = $('#mute-btn');
+    if (!btn || !window.Sounds) return;
+    function paint() {
+      const m = window.Sounds.isMuted();
+      btn.querySelector('.mute-icon').textContent = m ? '🔇' : '🔊';
+      btn.setAttribute('aria-pressed', m ? 'true' : 'false');
+      btn.setAttribute('aria-label', m ? 'Unmute sound' : 'Mute sound');
+    }
+    paint();
+    btn.addEventListener('click', () => {
+      window.Sounds.setMuted(!window.Sounds.isMuted());
+      paint();
+    });
+  })();
   // Tier-progression CTA on the results screen.
   document.addEventListener('click', (e) => {
     if (e.target && e.target.id === 'keep-ranking-btn') {
