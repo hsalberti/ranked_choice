@@ -16,11 +16,10 @@ export interface Env {
 }
 
 const ALLOWED_ORIGINS = new Set<string>([
+  'https://2028ballot.almaintel.com',
   'https://hsalberti.github.io',
   'http://localhost:8765',
   'http://127.0.0.1:8765',
-  // TODO: add the production Cloudflare Pages origin here once the
-  // custom domain is live.
 ]);
 
 function corsHeaders(origin: string | null): HeadersInit {
