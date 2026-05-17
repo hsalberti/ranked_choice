@@ -35,7 +35,7 @@
     const h = window.location.hostname;
     if (h === 'localhost' || h === '127.0.0.1' || h === '') return 'http://127.0.0.1:8787';
     // Deployed Worker. Update this line if the Worker is renamed/redeployed.
-    return 'https://ranked-choice-api.alberti-rick.workers.dev';
+    return 'https://ranked-choice-api.bardeus.workers.dev';
   })();
   const EVENT_FLUSH_URL = `${API_BASE_URL}/api/event`;
   let API_REACHABLE = true; // flips to false after a network failure; we stop calling.

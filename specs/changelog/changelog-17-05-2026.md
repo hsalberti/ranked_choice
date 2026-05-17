@@ -134,11 +134,19 @@ Copy / Post-to-X / native-share buttons + "See global stats →" CTA). New
 crowd ELO with party + country filter chips. Tier-progression CTA cycles "Keep
 voting · 12 more" → "Go deeper · 13 more" → hidden.
 
-### User-side follow-ups
-- `wrangler d1 migrations apply ranked-choice-db --remote` to ship the new table.
-- `wrangler deploy` to push the Worker (new `/api/elo` endpoint + Glicko in `/api/vote`).
-- Manual smoke test: `bash scripts/test_api.sh https://ranked-choice-api.alberti-rick.workers.dev`.
+### Shipped today (post-implementation)
+- ✅ Migration applied to prod D1 (`0005_candidate_country_elo.sql`).
+- ✅ Worker deployed to `ranked-choice-api.bardeus.workers.dev`
+  (version `249b7f4d`). Note: the prior changelog assumed
+  `*.alberti-rick.workers.dev`, but that hostname never resolved —
+  `bardeus` is the actual subdomain. `app.js` `API_BASE_URL` updated.
+- ✅ Smoke test against prod: 41/41 green
+  (`bash scripts/test_api.sh https://ranked-choice-api.bardeus.workers.dev`).
+
+### Still user-side
 - Lighthouse re-check on mobile (target 95+ across).
+- Manual play verification of openers (Vance vs. Newsom → R2 same-party).
+- 24h prod 5xx watch.
 
 ### Open tuning questions (deferred)
 - Stop-condition CI threshold (currently 90%). Simulation shows it never fires

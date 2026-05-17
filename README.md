@@ -117,7 +117,7 @@ curl https://ranked-choice-api.<your-subdomain>.workers.dev/api/health
 # → {"ok":true,"country":"BR"}
 ```
 
-If the deployed Worker name isn't `ranked-choice-api.alberti-rick.workers.dev`,
+If the deployed Worker name isn't `ranked-choice-api.bardeus.workers.dev`,
 update the prod URL constant in `app.js` (`API_BASE_URL` derivation).
 
 ### CI deployment
