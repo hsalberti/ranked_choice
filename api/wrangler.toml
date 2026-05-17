@@ -1,0 +1,52 @@
+# The 2028 Ballot — Cloudflare Worker config.
+#
+# Phase 1 ships /api/health only. Bindings for D1, KV, and secrets are
+# commented out below and get enabled progressively in later phases:
+#   Phase 1.5  →  no new bindings (engagement events use D1 from Phase 2)
+#   Phase 2    →  enable [[d1_databases]] DB
+#   Phase 3    →  same DB, more migrations
+#   Phase 5    →  enable [[kv_namespaces]] KV + Turnstile secret
+#
+# Before first deploy, set CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID
+# as repo secrets (used by .github/workflows/deploy.yml). `wrangler deploy`
+# locally picks them up from `wrangler login`.
+
+name = "ranked-choice-api"
+main = "src/index.ts"
+compatibility_date = "2026-05-17"
+compatibility_flags = ["nodejs_compat_v2"]
+
+# Set this once via `wrangler.toml` OR via the CLOUDFLARE_ACCOUNT_ID env
+# var. Leaving it as a placeholder so the file is safe to commit.
+# account_id = "TODO-your-cloudflare-account-id"
+
+# When you have the custom domain wired, add a route here:
+# routes = [
+#   { pattern = "api.your-domain.example/*", zone_name = "your-domain.example" },
+# ]
+
+# Observability — Workers tail logs come through `wrangler tail` until
+# Logpush is configured (Phase 6).
+[observability]
+enabled = true
+
+# ----- D1 (Phase 2) --------------------------------------------------
+# After running `wrangler d1 create ranked-choice-db`, paste the
+# database_id below and uncomment.
+#
+# [[d1_databases]]
+# binding       = "DB"
+# database_name = "ranked-choice-db"
+# database_id   = "TODO-from-wrangler-d1-create"
+# migrations_dir = "../migrations"
+
+# ----- KV (Phase 5) --------------------------------------------------
+# Rate-limit storage; per-IP daily slots keyed by sha256(ip + DAILY_SALT).
+#
+# [[kv_namespaces]]
+# binding = "KV"
+# id      = "TODO-from-wrangler-kv-namespace-create"
+
+# ----- Secrets (Phase 5) ---------------------------------------------
+# Set via `wrangler secret put TURNSTILE_SECRET` and similar — do NOT
+# commit them.
