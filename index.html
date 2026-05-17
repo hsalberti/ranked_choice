@@ -51,8 +51,8 @@
     <section class="screen active" id="screen-start">
       <div class="hero">
         <h1>Who should run in 2028?</h1>
-        <p>Tap through 25 head-to-head matchups. We'll build your ranked-choice top 5 and you can share it like a Wordle score.</p>
-        <div class="preview" id="start-preview"></div>
+        <p>Rank them, see each candidate's ELO. Understand your preferences.</p>
+        <div class="roster" id="start-preview"></div>
         <button class="cta" id="start-btn">Start voting →</button>
         <div class="start-meta">
           <span>· 25 candidates</span>
@@ -89,7 +89,7 @@
     <section class="screen" id="screen-results">
       <div class="results-hero">
         <div class="label">Your 2028 Ballot</div>
-        <h2 id="results-title">Your top 5</h2>
+        <h2 id="results-title">Your top 5 <button class="rcv-info-btn" type="button" data-explainer-open="why-rcv" aria-label="What is ranked-choice voting?">i</button></h2>
         <p id="results-sub">Here's how you ranked the field.</p>
       </div>
 
@@ -115,6 +115,10 @@
       <div class="results-actions">
         <button class="cta secondary" id="restart-btn">Start over</button>
       </div>
+
+      <!-- Inline tier list: lazy-mounted via IntersectionObserver on first
+           scroll into view. Same renderTierList() also powers #screen-tiers. -->
+      <section id="tier-list-slot" class="tier-list-slot" aria-label="Tier list"></section>
     </section>
 
     <!-- Stats screen — global crowd ELO, reachable only from results -->
@@ -144,6 +148,17 @@
 
       <div class="stats-list" id="stats-list" aria-live="polite"></div>
       <div class="stats-empty" id="stats-empty" hidden></div>
+    </section>
+
+    <!-- Standalone tier-list screen, reachable at #/tiers (hash route). -->
+    <section class="screen" id="screen-tiers">
+      <div class="stats-hero">
+        <button class="stats-back-btn" id="tiers-back-btn" type="button" aria-label="Back">← Back</button>
+        <div class="label">Tier list</div>
+        <h2>Tier list</h2>
+        <p>The crowd's ranking — or your own — sliced into S/A/B/C tiers.</p>
+      </div>
+      <div class="tier-list-standalone-host" id="tier-list-standalone" aria-label="Tier list"></div>
     </section>
 
     <footer class="foot">
@@ -194,11 +209,28 @@
     </div>
   </div>
 
+  <!-- Civic explainer panel: two anchored sections (Elo + RCV). Hidden by
+       default; openExplainer(section?) reveals and scrolls to a section. -->
+  <aside id="civic-explainer" class="explainer-panel" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="explainer-title" hidden>
+    <div class="explainer-backdrop" data-explainer-close="1"></div>
+    <div class="explainer-content">
+      <div class="explainer-head">
+        <h3 id="explainer-title">How does this work?</h3>
+        <button class="explainer-close" id="explainer-close" type="button" aria-label="Close">×</button>
+      </div>
+      <div class="explainer-scroll" id="explainer-scroll">
+        <section id="how-elo" class="explainer-section"></section>
+        <section id="why-rcv" class="explainer-section"></section>
+      </div>
+    </div>
+  </aside>
+
   <div class="toast" id="toast">Copied to clipboard</div>
 
   <script src="candidates.js"></script>
   <script src="pics/manifest.js"></script>
   <script src="lib/glicko2.js"></script>
+  <script src="lib/tier_cut.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

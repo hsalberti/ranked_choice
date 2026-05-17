@@ -395,6 +395,7 @@
     vote: $('#screen-vote'),
     results: $('#screen-results'),
     stats: $('#screen-stats'),
+    tiers: $('#screen-tiers'),
   };
   function show(name) {
     Object.entries(screens).forEach(([k, el]) => el.classList.toggle('active', k === name));
@@ -413,7 +414,10 @@
   }
 
   function avatarHtml(c, size) {
-    const sizeClass = size === 'sm' ? ' sm' : size === 'xs' ? ' xs' : '';
+    const sizeClass = size === 'sm' ? ' sm'
+      : size === 'xs' ? ' xs'
+      : size === 'lg' ? ' lg'
+      : '';
     const photo = (window.CANDIDATE_PHOTOS || {})[c.id];
     const inner = photo
       ? `<img src="${photo}" alt="" loading="lazy" onerror="this.remove();this.parentNode.textContent='${initials(c.name)}'">`
@@ -421,9 +425,51 @@
     return `<div class="avatar party-${c.party}${sizeClass}${photo ? ' has-photo' : ''}" aria-hidden="true">${inner}</div>`;
   }
 
+  // Returns 25 candidates: all of Tier 1, then the first of Tier 2, capped at 25.
+  function rosterPreviewSet() {
+    return [...TIER[1], ...TIER[2]].slice(0, 25);
+  }
+
+  // Builds an output sequence by picking, at each position, a random
+  // candidate from the parties that won't create a 3-in-a-row. Falls
+  // back to a plain shuffle if the constraint is infeasible (cap 6
+  // attempts).
+  function shufflePartyMixed(arr) {
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const buckets = {};
+      for (const c of arr) (buckets[c.party] = buckets[c.party] || []).push(c);
+      for (const p of Object.keys(buckets)) buckets[p] = shuffle(buckets[p]);
+      const out = [];
+      let ok = true;
+      while (out.length < arr.length) {
+        const blocked = out.length >= 2 && out[out.length - 1].party === out[out.length - 2].party
+          ? out[out.length - 1].party : null;
+        const choices = Object.keys(buckets).filter(p => buckets[p].length > 0 && p !== blocked);
+        if (choices.length === 0) { ok = false; break; }
+        // If one party would overflow the remaining slots (count > ceil(rest/2)),
+        // we must pick it. Otherwise pick weighted-randomly by remaining count
+        // so rare parties (Independents) don't get stranded at the end.
+        const remaining = arr.length - out.length;
+        const forced = choices.find(p => buckets[p].length * 2 > remaining + 1);
+        let pick;
+        if (forced) {
+          pick = forced;
+        } else {
+          const total = choices.reduce((s, p) => s + buckets[p].length, 0);
+          let r = Math.random() * total;
+          pick = choices[0];
+          for (const p of choices) { r -= buckets[p].length; if (r <= 0) { pick = p; break; } }
+        }
+        out.push(buckets[pick].pop());
+      }
+      if (ok) return out;
+    }
+    return shuffle(arr);
+  }
+
   function renderStartPreview() {
-    const pool = shuffle(C).slice(0, 6);
-    $('#start-preview').innerHTML = pool.map(c => avatarHtml(c, 'sm')).join('');
+    const pool = shufflePartyMixed(rosterPreviewSet());
+    $('#start-preview').innerHTML = pool.map(c => avatarHtml(c, 'lg')).join('');
   }
 
   function escapeHtml(s) {
@@ -588,6 +634,7 @@
       prev,
     });
     votesThisTier += 1;
+    totalVoteCount += 1;
     renderBackBtn();
 
     // pick animation
@@ -629,6 +676,7 @@
     appearances[h.pickedId] = Math.max(0, (appearances[h.pickedId] || 0) - 1);
     appearances[h.lostId]   = Math.max(0, (appearances[h.lostId]   || 0) - 1);
     votesThisTier = Math.max(0, votesThisTier - 1);
+    totalVoteCount = Math.max(0, totalVoteCount - 1);
     undoLocalVote(h.aId, h.bId, h.pickedId);
     // Re-display the matchup the user came from.
     currentMatchup = { a: byIdAll[h.aId], b: byIdAll[h.bId] };
@@ -754,6 +802,11 @@
   function showResults() {
     show('results');
     $('#progress').hidden = true;
+    // Reset the inline tier-list slot so a fresh results paint re-lazy-mounts.
+    const slot = document.getElementById('tier-list-slot');
+    if (slot) { slot.dataset.mounted = ''; slot.innerHTML = ''; }
+    getGlobalElo(); // warm the cache; non-blocking
+    lazyMountInlineTierList();
     const ranked = rankedList();
     const top5 = ranked.slice(0, 5);
 
@@ -1216,6 +1269,373 @@
     }
   });
 
+  /* ---------- tier list ----------
+   * Visual tier-list (TierMaker-style) reachable in two places:
+   *   1. Inline, lazily mounted under #screen-results on first scroll
+   *      into view (#tier-list-slot in index.html).
+   *   2. Standalone screen #screen-tiers reachable at #/tiers (Phase B).
+   *
+   * Ranking source is either the cached Global crowd Elo (via /api/elo)
+   * or this session's in-memory Glicko ratings ("Mine"). Tiers are cut
+   * by position via lib/tier_cut.js — viewers at the same size + source
+   * see identical groupings.
+   *
+   * Bucket sums per size: 15 → 2/3/4/6; 25 → 2/3/5/7/8; 40 → 2/3/5/7/8/15.
+   */
+  const TIER_ELO_CACHE_MS = 5 * 60 * 1000;
+  const eloCache = { fetchedAt: 0, data: null, inflight: null };
+  const TIER_STORAGE_SIZE = 'tierList.rosterSize';
+  const TIER_STORAGE_SOURCE = 'tierList.source';
+  const TIER_MINE_FLOOR = 5;
+  // Session-cumulative vote count (totalled across tier transitions, where
+  // `votesThisTier` resets). Mine source is gated on this reaching FLOOR.
+  let totalVoteCount = 0;
+  // Tier-list scope is shared by inline + standalone hosts. Updates re-paint
+  // every mounted host the next time renderTierList is called.
+  const tierScope = { size: 15, source: 'global' };
+  function loadTierScope() {
+    try {
+      const rawSize = localStorage.getItem(TIER_STORAGE_SIZE);
+      const n = parseInt(rawSize, 10);
+      if (n === 15 || n === 25 || n === 40) tierScope.size = n;
+    } catch {}
+    try {
+      const rawSrc = localStorage.getItem(TIER_STORAGE_SOURCE);
+      if (rawSrc === 'global' || rawSrc === 'mine') tierScope.source = rawSrc;
+    } catch {}
+  }
+  function saveTierScope() {
+    try {
+      localStorage.setItem(TIER_STORAGE_SIZE, String(tierScope.size));
+      localStorage.setItem(TIER_STORAGE_SOURCE, tierScope.source);
+    } catch {}
+  }
+  loadTierScope();
+  function isMineEnabled() { return totalVoteCount >= TIER_MINE_FLOOR; }
+  function getGlobalElo() {
+    if (eloCache.inflight) return eloCache.inflight;
+    const fresh = eloCache.data && (Date.now() - eloCache.fetchedAt) < TIER_ELO_CACHE_MS;
+    if (fresh) return Promise.resolve(eloCache.data);
+    if (!API_REACHABLE) return Promise.resolve(null);
+    eloCache.inflight = apiFetch('/api/elo?country=GLOBAL&limit=50', { method: 'GET' })
+      .then(r => r && r.ok ? r.json() : null)
+      .then(json => {
+        eloCache.inflight = null;
+        if (Array.isArray(json)) {
+          eloCache.data = json;
+          eloCache.fetchedAt = Date.now();
+          return json;
+        }
+        return null;
+      })
+      .catch(() => { eloCache.inflight = null; return null; });
+    return eloCache.inflight;
+  }
+
+  // Build a deterministic full-roster ranking of exactly POOL.length entries.
+  // Primary order = the API response (already sorted by elo desc); any POOL
+  // member missing from the response is appended in stable alphabetical id
+  // order so the same viewer-independent fill happens everywhere.
+  function rankForGlobal(apiRows) {
+    const seen = new Set();
+    const out = [];
+    if (Array.isArray(apiRows)) {
+      for (const row of apiRows) {
+        if (!byIdAll[row.id] || seen.has(row.id)) continue;
+        out.push(byIdAll[row.id]);
+        seen.add(row.id);
+      }
+    }
+    const rest = POOL.filter(c => !seen.has(c.id)).sort((a, b) => a.id.localeCompare(b.id));
+    return out.concat(rest);
+  }
+
+  function rankForMine() {
+    return POOL.slice().sort((a, b) => (ratings[b.id] || 0) - (ratings[a.id] || 0));
+  }
+
+  const TIER_ORDER = ['S', 'A', 'B', 'C', 'D', 'F'];
+
+  function tierAvatarHtml(c) {
+    const photo = (window.CANDIDATE_PHOTOS || {})[c.id];
+    const inner = photo
+      ? `<img src="${photo}" alt="" loading="lazy" crossorigin="anonymous" onerror="this.remove();this.parentNode.textContent='${initials(c.name)}'">`
+      : initials(c.name);
+    return `<div class="avatar party-${c.party}${photo ? ' has-photo' : ''}" aria-hidden="true">${inner}</div>`;
+  }
+
+  function controlsHtml() {
+    const sizes = [15, 25, 40].map(n => {
+      const active = tierScope.size === n;
+      return `<button class="tier-pill${active ? ' active' : ''}" type="button"
+                data-tier-size="${n}" role="radio" aria-checked="${active}">${n}</button>`;
+    }).join('');
+    const mineEnabled = isMineEnabled();
+    const sourceBtns = [
+      `<button class="tier-pill${tierScope.source === 'global' ? ' active' : ''}"
+         type="button" data-tier-source="global" role="radio"
+         aria-checked="${tierScope.source === 'global'}">🌍 Global</button>`,
+      `<button class="tier-pill${tierScope.source === 'mine' && mineEnabled ? ' active' : ''}"
+         type="button" data-tier-source="mine" role="radio"
+         aria-checked="${tierScope.source === 'mine' && mineEnabled}"
+         ${mineEnabled ? '' : 'aria-disabled="true"'}>
+         ${mineEnabled ? '👤 Mine' : 'Vote first'}
+       </button>`,
+    ].join('');
+    let dismissed = false;
+    try { dismissed = localStorage.getItem(EXPLAINER_DISMISS_KEY) === '1'; } catch {}
+    return `
+      <div class="tier-toggle-group" role="radiogroup" aria-label="Roster size">${sizes}</div>
+      <div class="tier-toggle-group" role="radiogroup" aria-label="Ranking source">${sourceBtns}</div>
+      <button class="tier-how-btn${dismissed ? '' : ' pulse'}" type="button" data-tier-how="1"
+              aria-label="How is this calculated?">How?</button>
+      <button class="tier-export-btn" type="button" data-tier-export="1"
+              aria-label="Save tier list as image">💾 Save as image</button>
+    `;
+  }
+
+  function renderTierList(rootEl, scope) {
+    if (!rootEl || !window.TierCut) return;
+    // `scope` arg is informational only — we always render the shared tierScope.
+    const size = tierScope.size;
+    const source = tierScope.source;
+    rootEl.innerHTML = `
+      <div class="tier-list-header">
+        <div class="tier-list-title">
+          <div class="label">Tier list</div>
+          <h3 id="tier-list-heading">Loading…</h3>
+        </div>
+        <div class="tier-list-controls">${controlsHtml()}</div>
+      </div>
+      <div class="tier-list-rows" aria-live="polite">
+        <div class="tier-list-loading">Loading global rankings…</div>
+      </div>
+    `;
+    const heading = rootEl.querySelector('#tier-list-heading');
+    const rowsHost = rootEl.querySelector('.tier-list-rows');
+
+    const paint = (rankedFull) => {
+      if (!rankedFull || rankedFull.length < size) {
+        heading.textContent = source === 'mine' ? 'Your tier list' : 'Global tier list';
+        rowsHost.innerHTML = `<div class="tier-list-empty">Not enough data yet — keep voting and check back.</div>`;
+        return;
+      }
+      heading.textContent = source === 'mine'
+        ? `Your tier list · Top ${size}`
+        : `Global tier list · Top ${size}`;
+      const cut = window.TierCut.cutTiers(rankedFull.slice(0, size), size);
+      const rowsHtml = TIER_ORDER
+        .filter(t => Array.isArray(cut[t]) && cut[t].length > 0)
+        .map(t => {
+          const avatars = cut[t].map(c => `
+            <button class="tier-avatar" type="button" data-cid="${c.id}"
+                    aria-label="${escapeHtml(c.name)} — ${t} tier">
+              ${tierAvatarHtml(c)}
+              <span class="tier-avatar-name">${escapeHtml(c.name.split(' ').slice(-1)[0])}</span>
+            </button>
+          `).join('');
+          return `
+            <div class="tier-row" data-tier="${t}">
+              <div class="tier-label tier-label-${t}">${t}</div>
+              <div class="tier-row-avatars">${avatars}</div>
+            </div>
+          `;
+        }).join('');
+      rowsHost.innerHTML = rowsHtml;
+    };
+
+    if (source === 'mine') {
+      paint(rankForMine());
+    } else {
+      getGlobalElo().then(rows => paint(rankForGlobal(rows)));
+    }
+  }
+
+  // Re-paint every currently-mounted tier-list host. Called when toggles
+  // flip so the inline and standalone surfaces stay in sync.
+  function repaintAllTierHosts() {
+    const inline = document.getElementById('tier-list-slot');
+    if (inline && inline.dataset.mounted === '1') renderTierList(inline, tierScope);
+    const standalone = document.getElementById('tier-list-standalone');
+    if (standalone) renderTierList(standalone, tierScope);
+  }
+
+  /* ---------- PNG export ----------
+   * Renders the current tier list into an offscreen 1200×630 canvas
+   * (Open Graph aspect ratio) and triggers a download. No external libs;
+   * uses crossOrigin-anonymous on avatar images so the canvas is not
+   * tainted. All avatars in this project are first-party static assets,
+   * so no CORS issue in practice.
+   */
+  const TIER_BAND_COLORS = {
+    S: '#ff5252', A: '#ff9b3a', B: '#ffd54a',
+    C: '#6fcc6f', D: '#5b9bff', F: '#bcbcc4',
+  };
+  function loadAvatarImage(c) {
+    const url = (window.CANDIDATE_PHOTOS || {})[c.id];
+    if (!url) return Promise.resolve(null);
+    return new Promise(resolve => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = url;
+    });
+  }
+  function buildRankedForScope() {
+    if (tierScope.source === 'mine') {
+      return Promise.resolve(rankForMine());
+    }
+    return getGlobalElo().then(rows => rankForGlobal(rows));
+  }
+  function exportTierListPng() {
+    const W = 1200, H = 630;
+    const size = tierScope.size;
+    const source = tierScope.source;
+    return buildRankedForScope().then(rankedFull => {
+      if (!rankedFull || rankedFull.length < size) {
+        toast('Not enough data to export yet.');
+        return null;
+      }
+      const cut = window.TierCut.cutTiers(rankedFull.slice(0, size), size);
+      const rows = TIER_ORDER.filter(t => Array.isArray(cut[t]) && cut[t].length > 0);
+      // Pre-load all avatar images.
+      const flat = rows.flatMap(t => cut[t]);
+      return Promise.all(flat.map(loadAvatarImage)).then(imgs => {
+        const imgById = {};
+        flat.forEach((c, i) => { imgById[c.id] = imgs[i]; });
+
+        const canvas = document.createElement('canvas');
+        canvas.width = W;
+        canvas.height = H;
+        const ctx = canvas.getContext('2d');
+
+        // Background
+        ctx.fillStyle = '#0b0b0d';
+        ctx.fillRect(0, 0, W, H);
+
+        // Title strip
+        ctx.fillStyle = '#f5f5f7';
+        ctx.font = "700 30px -apple-system, BlinkMacSystemFont, 'Inter', sans-serif";
+        ctx.textBaseline = 'top';
+        const title = source === 'mine'
+          ? `Your tier list · Top ${size}`
+          : `Global tier list · Top ${size}`;
+        ctx.fillText(title, 32, 26);
+        ctx.font = "500 16px -apple-system, BlinkMacSystemFont, 'Inter', sans-serif";
+        ctx.fillStyle = '#9a9aa3';
+        ctx.fillText('The 2028 Ballot', 32, 64);
+
+        // Rows region: 32px left padding, starts at y=110
+        const rowsTop = 110;
+        const rowsBottom = H - 40;
+        const labelW = 70;
+        const rowGap = 10;
+        const padX = 32;
+        const innerW = W - padX * 2;
+        const rowH = Math.max(60, Math.floor((rowsBottom - rowsTop - rowGap * (rows.length - 1)) / rows.length));
+        // Each row body holds N avatars laid out horizontally with shared spacing.
+        rows.forEach((t, ri) => {
+          const y = rowsTop + ri * (rowH + rowGap);
+          // Label cell
+          ctx.fillStyle = TIER_BAND_COLORS[t] || '#bcbcc4';
+          ctx.fillRect(padX, y, labelW, rowH);
+          ctx.fillStyle = '#1a1a1d';
+          ctx.font = "800 32px -apple-system, BlinkMacSystemFont, 'Inter', sans-serif";
+          ctx.textBaseline = 'middle';
+          const labelW2 = ctx.measureText(t).width;
+          ctx.fillText(t, padX + (labelW - labelW2) / 2, y + rowH / 2);
+          // Body cell
+          const bodyX = padX + labelW + 6;
+          const bodyW = innerW - labelW - 6;
+          ctx.fillStyle = '#161618';
+          ctx.fillRect(bodyX, y, bodyW, rowH);
+          // Avatars
+          const items = cut[t];
+          const aSize = Math.min(rowH - 12, Math.floor((bodyW - 16) / items.length) - 6);
+          const aSlot = aSize + 6;
+          let ax = bodyX + 12;
+          const ay = y + (rowH - aSize) / 2;
+          items.forEach(c => {
+            const img = imgById[c.id];
+            // Avatar circle background (party tint)
+            const partyTint = c.party === 'R' ? '#3a1414' : c.party === 'D' ? '#0e2541' : '#2a2a2e';
+            ctx.beginPath();
+            ctx.arc(ax + aSize / 2, ay + aSize / 2, aSize / 2, 0, Math.PI * 2);
+            ctx.closePath();
+            ctx.fillStyle = partyTint;
+            ctx.fill();
+            if (img) {
+              ctx.save();
+              ctx.beginPath();
+              ctx.arc(ax + aSize / 2, ay + aSize / 2, aSize / 2, 0, Math.PI * 2);
+              ctx.clip();
+              ctx.drawImage(img, ax, ay, aSize, aSize);
+              ctx.restore();
+            } else {
+              ctx.fillStyle = '#f5f5f7';
+              ctx.font = `700 ${Math.floor(aSize * 0.36)}px -apple-system, BlinkMacSystemFont, 'Inter', sans-serif`;
+              ctx.textBaseline = 'middle';
+              const txt = initials(c.name);
+              const tw = ctx.measureText(txt).width;
+              ctx.fillText(txt, ax + (aSize - tw) / 2, ay + aSize / 2);
+            }
+            ax += aSlot;
+          });
+        });
+
+        // Watermark (user confirmed in design open-question — keep it).
+        ctx.fillStyle = 'rgba(245, 245, 247, 0.55)';
+        ctx.font = "500 14px -apple-system, BlinkMacSystemFont, 'Inter', sans-serif";
+        ctx.textBaseline = 'alphabetic';
+        const wm = '2028ballot.almaintel.com';
+        const wmW = ctx.measureText(wm).width;
+        ctx.fillText(wm, W - padX - wmW, H - 18);
+
+        return new Promise(resolve => {
+          canvas.toBlob(blob => {
+            if (!blob) { toast('Could not save image.'); resolve(null); return; }
+            const filename = `2028ballot-tier-${source}-${size}.png`;
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 5000);
+            toast('Saved — check your downloads');
+            resolve(blob);
+          }, 'image/png');
+        });
+      });
+    });
+  }
+  // Expose for the smoke-test (and possible future debug surfaces).
+  if (typeof window !== 'undefined') window.__tierExport = exportTierListPng;
+
+  function lazyMountInlineTierList() {
+    const slot = document.getElementById('tier-list-slot');
+    if (!slot) return;
+    if (slot.dataset.mounted === '1') return;
+    if (!('IntersectionObserver' in window)) {
+      // Fallback for ancient browsers: render immediately.
+      renderTierList(slot, { size: 15, source: 'global' });
+      slot.dataset.mounted = '1';
+      return;
+    }
+    const io = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting && slot.dataset.mounted !== '1') {
+          renderTierList(slot, { size: 15, source: 'global' });
+          slot.dataset.mounted = '1';
+          io.disconnect();
+        }
+      }
+    }, { rootMargin: '120px 0px' });
+    io.observe(slot);
+  }
+
   /* ---------- wiring ---------- */
   function start() {
     // Fresh ballot: wipe ratings/RD/sigma/wins across all 40 candidates,
@@ -1226,6 +1646,7 @@
     for (const id of Object.keys(wins))    wins[id]    = 0;
     tierCompleted = { 1: false, 2: false, 3: false };
     serverBallotId = null;
+    totalVoteCount = 0;
     startTier(1);
   }
 
@@ -1347,9 +1768,200 @@
     if (tag) tag.setAttribute('content', `${API_BASE_URL}/api/og/${b}`);
   })();
 
+  /* ---------- tier-list interactivity ---------- */
+  document.addEventListener('click', (e) => {
+    // Size pill
+    const sizeBtn = e.target.closest('[data-tier-size]');
+    if (sizeBtn) {
+      const n = parseInt(sizeBtn.dataset.tierSize, 10);
+      if (n === 15 || n === 25 || n === 40) {
+        tierScope.size = n;
+        saveTierScope();
+        repaintAllTierHosts();
+      }
+      return;
+    }
+    // Source pill
+    const srcBtn = e.target.closest('[data-tier-source]');
+    if (srcBtn) {
+      const wanted = srcBtn.dataset.tierSource;
+      if (wanted === 'mine' && !isMineEnabled()) {
+        toast(`Vote at least ${TIER_MINE_FLOOR} times to see your personal tier list`);
+        return;
+      }
+      if (wanted === 'global' || wanted === 'mine') {
+        tierScope.source = wanted;
+        saveTierScope();
+        repaintAllTierHosts();
+      }
+      return;
+    }
+    // "How?" link → civic explainer (Phase C)
+    const howBtn = e.target.closest('[data-tier-how]');
+    if (howBtn) {
+      openExplainer('how-elo');
+      return;
+    }
+    // "Save as image" → PNG export (Phase C)
+    const exportBtn = e.target.closest('[data-tier-export]');
+    if (exportBtn) {
+      exportTierListPng(tierScope).catch(() => toast('Could not save image — try again.'));
+      return;
+    }
+    // Candidate avatar in any tier row → detail sheet
+    const tierAv = e.target.closest('.tier-avatar[data-cid]');
+    if (tierAv) {
+      openDetailSheet(tierAv.dataset.cid);
+      return;
+    }
+  });
+
+  // Keyboard: Space / Enter on a focused tier-avatar opens the detail sheet.
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const av = e.target.closest && e.target.closest('.tier-avatar[data-cid]');
+    if (av && document.activeElement === av) {
+      e.preventDefault();
+      openDetailSheet(av.dataset.cid);
+    }
+  });
+
+  // Back button on the standalone tier-list screen.
+  const tiersBackBtn = $('#tiers-back-btn');
+  if (tiersBackBtn) tiersBackBtn.addEventListener('click', () => {
+    if (history.length > 1) history.back();
+    else { location.hash = ''; show('results'); }
+  });
+
+  /* ---------- hash router ----------
+   * Tiny: maps #/tiers → show('tiers') + paint. Other hashes are ignored
+   * (existing screen-button navigation remains the entry point for them).
+   */
+  function applyRoute() {
+    const h = location.hash || '';
+    if (h === '#/tiers') {
+      show('tiers');
+      const host = $('#tier-list-standalone');
+      if (host) renderTierList(host, tierScope);
+    }
+    // No else: leave the active screen alone for other hash values.
+  }
+  window.addEventListener('hashchange', applyRoute);
+
+  /* ---------- civic explainer (Phase C) ----------
+   * Reusable panel with two anchored sections (#how-elo, #why-rcv).
+   * openExplainer(section?) reveals the panel and scrolls to a section.
+   */
+  const EXPLAINER_DISMISS_KEY = 'civicExplainer.dismissedTip';
+  const EXPLAINER_COPY_HOW_ELO = `
+    <h4>How tiers are computed</h4>
+    <p>Every time someone picks a candidate in a head-to-head matchup, we update each candidate's <strong>Elo rating</strong>
+       — the same math chess uses. Picking a lower-rated underdog gives them a bigger boost; picking the
+       favorite barely moves the needle. Over thousands of votes, ratings settle into a stable ordering.</p>
+    <p>The <strong>tier list</strong> just slices that ordering into named rows by position. Top 2 are S tier,
+       next 3 are A, and so on. The cut is by rank, not by Elo gap, so two friends viewing the same size +
+       source see identical groupings — perfect for arguing about who's really C tier.</p>
+    <p><em>Mine</em> uses the same Elo math, but with only the matchups you personally voted on — a smaller
+       sample, but it's your taste, not the crowd's.</p>
+    <p style="margin-top:18px;">
+      <button class="cta secondary" type="button" id="explainer-share-btn">🔗 Share this with a friend</button>
+    </p>
+  `;
+  const EXPLAINER_COPY_WHY_RCV = `
+    <h4>Why ranked choice?</h4>
+    <p>In a normal "pick one" vote, the winner only needs 50% + 1 of the votes — so a candidate liked by half
+       and disliked by the other half can edge out someone more broadly acceptable.</p>
+    <p><strong>Ranked-choice voting</strong> (also called <em>instant-runoff</em>) asks voters to rank candidates
+       in order of preference. If no one wins outright, the lowest-ranked candidate is eliminated and their
+       voters' second choices are counted instead. The process repeats until one candidate has a majority.</p>
+    <p>The effect: a candidate broadly acceptable to most voters tends to beat a candidate intensely loved
+       by a narrow group. In practice that often means fewer "spoiler" effects, more centrist outcomes, and
+       a winner who reflects what most people are okay with — not just what 50% + 1 demanded.</p>
+    <p>Real-world examples: <em>Maine</em> and <em>Alaska</em> use it statewide; dozens of US cities (incl.
+       New York City for primaries) use it too. Ireland and Australia have used variants for decades.</p>
+    <p>This site is a toy version: head-to-head matchups feed an Elo rating, which orders candidates the way
+       an RCV system would order them in spirit, without asking you to rank 40 names at once.</p>
+  `;
+  function paintExplainerSections() {
+    const a = document.getElementById('how-elo');
+    const b = document.getElementById('why-rcv');
+    if (a && !a.dataset.painted) { a.innerHTML = EXPLAINER_COPY_HOW_ELO; a.dataset.painted = '1'; }
+    if (b && !b.dataset.painted) { b.innerHTML = EXPLAINER_COPY_WHY_RCV; b.dataset.painted = '1'; }
+  }
+  let explainerReturnFocus = null;
+  function openExplainer(section) {
+    paintExplainerSections();
+    const panel = document.getElementById('civic-explainer');
+    if (!panel) return;
+    explainerReturnFocus = document.activeElement;
+    panel.hidden = false;
+    panel.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+    requestAnimationFrame(() => {
+      panel.classList.add('show');
+      const scroll = document.getElementById('explainer-scroll');
+      if (!scroll) return;
+      if (section && (section === 'how-elo' || section === 'why-rcv')) {
+        const target = document.getElementById(section);
+        if (target) scroll.scrollTop = target.offsetTop - 6;
+      } else {
+        scroll.scrollTop = 0;
+      }
+      const closeBtn = document.getElementById('explainer-close');
+      if (closeBtn) closeBtn.focus();
+    });
+    try {
+      if (!localStorage.getItem(EXPLAINER_DISMISS_KEY)) {
+        localStorage.setItem(EXPLAINER_DISMISS_KEY, '1');
+        // Repaint hosts so the pulse hint goes away on the trigger.
+        repaintAllTierHosts();
+      }
+    } catch {}
+  }
+  function closeExplainer() {
+    const panel = document.getElementById('civic-explainer');
+    if (!panel || panel.hidden) return;
+    panel.classList.remove('show');
+    panel.setAttribute('aria-hidden', 'true');
+    // After the close transition (kept simple — immediate).
+    panel.hidden = true;
+    document.body.style.overflow = '';
+    if (explainerReturnFocus && typeof explainerReturnFocus.focus === 'function') {
+      explainerReturnFocus.focus();
+      explainerReturnFocus = null;
+    }
+  }
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('[data-explainer-close]') || e.target.id === 'explainer-close') {
+      e.preventDefault();
+      closeExplainer();
+      return;
+    }
+    if (e.target.id === 'explainer-share-btn') {
+      const url = `${location.origin}${location.pathname}#/tiers`;
+      copy(url);
+      toast('Link copied — share it with a friend');
+      return;
+    }
+    // (i) icon next to "Your top 5" → why-rcv
+    if (e.target.closest('[data-explainer-open="why-rcv"]')) {
+      openExplainer('why-rcv');
+    }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      const panel = document.getElementById('civic-explainer');
+      if (panel && !panel.hidden) {
+        e.preventDefault();
+        closeExplainer();
+      }
+    }
+  });
+
   renderStartPreview();
   renderFriendIntro();
   flushEvents();
+  applyRoute();
 
   // Boot-time API check: warms the country hint used by the stat
   // overlay and surfaces "Voting from 🇧🇷" on the start screen.

@@ -160,19 +160,14 @@ button {
   color: var(--text-muted);
   margin: 0 0 28px;
 }
-.hero .preview {
-  display: flex;
-  justify-content: center;
-  gap: -8px;
-  margin: 24px 0 28px;
+.hero .roster {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  justify-items: center;
+  gap: 10px;
+  max-width: 360px;
+  margin: 28px auto 32px;
 }
-.hero .preview .avatar {
-  width: 44px;
-  height: 44px;
-  border: 3px solid var(--bg);
-  margin-left: -10px;
-}
-.hero .preview .avatar:first-child { margin-left: 0; }
 
 .cta {
   display: inline-flex;
@@ -463,10 +458,15 @@ button {
 }
 .avatar.sm { width: 38px; height: 38px; font-size: 13px; }
 .avatar.xs { width: 28px; height: 28px; font-size: 11px; box-shadow: inset 0 0 0 2px rgba(255,255,255,0.4); }
+.avatar.lg { width: 60px; height: 60px; font-size: 18px; }
 
 .avatar.party-R { background: linear-gradient(140deg, #e0626a, var(--rep)); }
 .avatar.party-D { background: linear-gradient(140deg, #6ea6e8, var(--dem)); }
 .avatar.party-I { background: linear-gradient(140deg, #9a9aa3, var(--ind)); }
+
+.avatar.lg.party-R { box-shadow: inset 0 0 0 3px rgba(255,255,255,0.4), 0 0 0 3px var(--rep); }
+.avatar.lg.party-D { box-shadow: inset 0 0 0 3px rgba(255,255,255,0.4), 0 0 0 3px var(--dem); }
+.avatar.lg.party-I { box-shadow: inset 0 0 0 3px rgba(255,255,255,0.4), 0 0 0 3px var(--ind); }
 
 .avatar.has-photo { overflow: hidden; padding: 0; }
 .avatar.has-photo img {
@@ -938,8 +938,16 @@ button {
   /* Hero */
   .hero { max-width: 720px; margin: 40px auto 32px; }
   .hero p { font-size: 19px; margin-bottom: 32px; }
-  .hero .preview { margin: 28px 0 32px; }
-  .hero .preview .avatar { width: 56px; height: 56px; border-width: 4px; }
+  .hero .roster {
+    grid-template-columns: repeat(5, 72px);
+    gap: 14px;
+    max-width: 520px;
+    margin: 32px auto 36px;
+  }
+  .avatar.lg { width: 72px; height: 72px; font-size: 22px; }
+  .avatar.lg.party-R { box-shadow: inset 0 0 0 4px rgba(255,255,255,0.4), 0 0 0 4px var(--rep); }
+  .avatar.lg.party-D { box-shadow: inset 0 0 0 4px rgba(255,255,255,0.4), 0 0 0 4px var(--dem); }
+  .avatar.lg.party-I { box-shadow: inset 0 0 0 4px rgba(255,255,255,0.4), 0 0 0 4px var(--ind); }
   .cta { padding: 16px 32px; font-size: 17px; }
   .start-meta { font-size: 14px; gap: 22px; }
 
@@ -1217,3 +1225,316 @@ button {
   margin-left: 6px;
 }
 .stats-retry:hover { background: var(--surface); }
+
+/* ---------- Tier list (inline + standalone) ----------
+ * Mounted in two places: #tier-list-slot inside #screen-results (lazy)
+ * and #tier-list-standalone inside #screen-tiers. Same DOM shape so a
+ * single stylesheet section covers both.
+ */
+.tier-list-slot,
+.tier-list-standalone-host {
+  margin: 28px 0 8px;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.tier-list-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.tier-list-title .label {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+.tier-list-title h3 {
+  margin: 0;
+  font-size: 18px;
+  letter-spacing: -0.01em;
+  font-weight: 700;
+}
+.tier-list-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.tier-list-loading,
+.tier-list-empty {
+  text-align: center;
+  padding: 18px;
+  color: var(--text-muted);
+  font-size: 14px;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  border: 1px dashed var(--border);
+}
+.tier-list-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.tier-row {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 8px;
+  align-items: stretch;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.tier-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 22px;
+  letter-spacing: -0.02em;
+  color: #1a1a1d;
+  user-select: none;
+}
+/* TierMaker-inspired band colors. Kept opaque so text stays legible in
+ * both light and dark modes (the label always uses a dark foreground). */
+.tier-label-S { background: #ff5252; }
+.tier-label-A { background: #ff9b3a; }
+.tier-label-B { background: #ffd54a; }
+.tier-label-C { background: #6fcc6f; }
+.tier-label-D { background: #5b9bff; }
+.tier-label-F { background: #bcbcc4; }
+
+.tier-row-avatars {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  /* Mobile-first: horizontal scroll-snap so an overflow row stays usable
+   * without breaking the tier-grid metaphor. */
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.tier-row-avatars::-webkit-scrollbar { display: none; }
+.tier-avatar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  background: transparent;
+  border: none;
+  padding: 4px 2px;
+  cursor: pointer;
+  scroll-snap-align: start;
+}
+.tier-avatar:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+.tier-avatar .avatar { width: 44px; height: 44px; font-size: 14px; }
+.tier-avatar-name {
+  font-size: 11px;
+  color: var(--text-muted);
+  max-width: 58px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Desktop: enough room to wrap rather than scroll. */
+@media (min-width: 600px) {
+  .tier-row-avatars {
+    overflow-x: visible;
+    flex-wrap: wrap;
+    scroll-snap-type: none;
+  }
+  .tier-list-slot,
+  .tier-list-standalone-host { padding: 22px; }
+  .tier-label { font-size: 26px; }
+  .tier-avatar .avatar { width: 52px; height: 52px; font-size: 16px; }
+  .tier-avatar-name { max-width: 76px; font-size: 12px; }
+}
+
+/* Toggle pills + How? trigger + export button (Phase B + C). */
+.tier-toggle-group {
+  display: inline-flex;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  padding: 2px;
+  gap: 2px;
+}
+.tier-pill {
+  background: transparent;
+  border: none;
+  border-radius: 99px;
+  padding: 5px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+.tier-pill:hover { color: var(--text); }
+.tier-pill.active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+.tier-pill[aria-disabled="true"] {
+  color: var(--text-muted);
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.tier-pill:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+
+.tier-how-btn,
+.tier-export-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  padding: 5px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color var(--transition), border-color var(--transition);
+}
+.tier-how-btn:hover,
+.tier-export-btn:hover { color: var(--text); border-color: var(--text); }
+.tier-how-btn:focus-visible,
+.tier-export-btn:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+/* Discoverability pulse on the How? button — suppressed after first open. */
+.tier-how-btn.pulse {
+  animation: tier-how-pulse 1.6s ease-in-out infinite;
+  border-color: var(--text);
+  color: var(--text);
+}
+@keyframes tier-how-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(91, 155, 255, 0.0); }
+  50%      { box-shadow: 0 0 0 6px rgba(91, 155, 255, 0.18); }
+}
+
+/* "Your top 5" (i) icon trigger for the RCV explainer. */
+.rcv-info-btn {
+  margin-left: 6px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+}
+.rcv-info-btn:hover { color: var(--text); border-color: var(--text); }
+
+/* ---------- Civic explainer panel ----------
+ * Hidden by default. openExplainer() reveals; close via button, backdrop,
+ * or Escape. Two anchored sections inside: #how-elo and #why-rcv.
+ */
+.explainer-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  pointer-events: auto;
+}
+.explainer-panel[hidden] { display: none; }
+.explainer-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+.explainer-panel.show .explainer-backdrop { opacity: 1; }
+.explainer-content {
+  position: relative;
+  background: var(--surface);
+  color: var(--text);
+  width: 100%;
+  max-width: 560px;
+  margin: auto;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-hover);
+  max-height: min(86vh, 86dvh);
+  display: flex;
+  flex-direction: column;
+  transform: translateY(20px);
+  opacity: 0;
+  transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 200ms ease;
+}
+.explainer-panel.show .explainer-content { transform: translateY(0); opacity: 1; }
+.explainer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 22px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.explainer-head h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.explainer-close {
+  background: transparent;
+  border: none;
+  font-size: 26px;
+  line-height: 1;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px 8px;
+}
+.explainer-close:hover { color: var(--text); }
+.explainer-scroll {
+  overflow-y: auto;
+  padding: 14px 22px 22px;
+}
+.explainer-section { padding: 14px 0; border-bottom: 1px solid var(--border); }
+.explainer-section:last-child { border-bottom: none; }
+.explainer-section h4 {
+  margin: 0 0 10px;
+  font-size: 16px;
+  font-weight: 700;
+}
+.explainer-section p {
+  margin: 0 0 12px;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.55;
+}
+.explainer-section p:last-child { margin-bottom: 0; }
+
+/* Mobile: sheet from bottom rather than centered modal. */
+@media (max-width: 600px) {
+  .explainer-content {
+    max-width: none;
+    margin: auto 0 0;
+    border-radius: 18px 18px 0 0;
+    max-height: 88vh;
+    max-height: 88dvh;
+  }
+}
+

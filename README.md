@@ -43,6 +43,28 @@ optional `&x=pritzker,abbott,…` for the long tail). Opening that link
 shows the friend's ballot above the "start voting" CTA so the
 recipient can build their own and compare.
 
+## Tier list
+
+After voting, scrolling past the share section reveals a TierMaker-style
+tier list of the candidates. The same view also lives at a dedicated
+hash route — `https://2028ballot.almaintel.com/#/tiers` — handy for
+direct sharing or dropping into an OBS browser source.
+
+- **Roster size pills (top-right)** — `15` (default, S2/A3/B4/C6), `25`
+  (adds D8), `40` (adds D8 + F15).
+- **Source pills** — `Global` (crowd Elo from `/api/elo`) or `Mine`
+  (this session's personal Glicko ratings; enabled after 5 votes).
+- **Save as image** — exports the current view as a 1200×630 PNG with a
+  small site watermark. No round-trip; the canvas render is client-side.
+- **How?** — opens the civic explainer with two sections: how the Elo
+  math turns pairwise votes into tiers, and a plain-English description
+  of ranked-choice voting (also reachable from the `(i)` icon next to
+  "Your top 5" on the results screen).
+
+Selections persist in `localStorage` under `tierList.rosterSize` and
+`tierList.source`. The Global cache is held in-memory for 5 minutes so
+toggling roster size doesn't re-hit `/api/elo`.
+
 ## Keyboard
 
 - `1` / `←` — pick the left candidate

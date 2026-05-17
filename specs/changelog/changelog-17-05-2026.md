@@ -155,3 +155,14 @@ voting · 12 more" → "Go deeper · 13 more" → hidden.
 - Adaptive 70/30 split is fine to A/B post-launch (range 0.5–0.85).
 - `DYNAMIC_OPENER` stays `false` in v1 — flip on after `candidate_country_elo`
   has > 1000 ballots per major country and the leaderboard stabilizes.
+
+## v3 — Tier list + civic explainer
+
+Per OpenSpec change `tier-list-view`. TierMaker-style tier rows (S/A/B/C,
+plus D and F at larger sizes) rendered from either Global crowd Elo or
+this session's personal Glicko ratings. Mounted inline on the results
+screen (lazy via IntersectionObserver) and as a standalone screen at
+`#/tiers`. Includes a 1200×630 client-side PNG export with watermark, a
+civic-explainer panel (Elo math + ranked-choice voting basics, neutral
+tone), and a clickable `(i)` icon next to "Your top 5" on results.
+Zero backend changes; zero new runtime deps.

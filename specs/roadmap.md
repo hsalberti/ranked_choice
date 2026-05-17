@@ -231,6 +231,43 @@ votes; `/api/elo` returns country-aware leaderboards under 100ms p95;
 stats screen renders without `country_leaderboard` / `country_comparison`
 calls in the results path.
 
+## v3 — Tier list + civic explainer [in progress — 2026-05-17]
+
+Driven by the OpenSpec change `tier-list-view`
+(`openspec/changes/tier-list-view/`). Aims at the streamer / creator
+cohort: gives them a TierMaker-style visual artifact to react to once
+their personal ballot is in, and uses the moment to surface a plain-
+English explainer of how the math works and what ranked-choice voting
+actually is.
+
+- **Tier-list view.** TierMaker-style S/A/B/C rows (plus D and F at
+  larger roster sizes) rendered from either Global crowd Elo or this
+  session's personal Glicko ratings. Tier cuts are fixed-count by
+  position (15 → 2/3/4/6; 25 → 2/3/5/7/8; 40 → 2/3/5/7/8/15) so two
+  viewers at the same size + source see identical groupings.
+- **Two entry points, one component.** Inline below `#screen-results`
+  (lazy-mounted via IntersectionObserver), and a dedicated
+  `#screen-tiers` screen reachable at hash route `#/tiers`. Same
+  `renderTierList()` powers both hosts.
+- **Header controls.** Roster-size pills (15 / 25 / 40), source pills
+  (Global / Mine), and "How?" + "Save as image" buttons. Mine is gated
+  behind 5 in-session votes; selections persist in `localStorage`.
+- **PNG export.** Client-side 1200×630 canvas render with a small
+  `2028ballot.almaintel.com` watermark; filename
+  `2028ballot-tier-{global|mine}-{15|25|40}.png`. No Worker round-trip,
+  no extra runtime deps.
+- **Civic explainer panel.** Two anchored sections (`#how-elo`,
+  `#why-rcv`) reachable from the tier-list header ("How?") and from an
+  `(i)` icon next to "Your top 5" on the results screen. Copy is
+  neutral / explanatory and lives as single string constants in
+  `app.js` so edits don't touch markup.
+
+**Exit criteria:** inline tier-list renders below the results screen
+without a Lighthouse regression; `#/tiers` deep-links land on the
+standalone screen; PNG export downloads a valid 1200×630 image in
+Chrome / Safari / Firefox; explainer panel opens to either section
+without scrolling glitches.
+
 ## Phase 7 — Beyond MVP
 
 Picked up only when there's demand signal from real usage.
