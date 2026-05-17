@@ -1,75 +1,89 @@
 // The 2028 Ballot — Cloudflare Worker entry point.
 //
-// Phase 1 (current): a single GET /api/health that echoes country from
-// the Cloudflare-edge `request.cf.country` header. CORS is open to the
-// frontend origins listed in ALLOWED_ORIGINS below.
-//
-// Phase 2+ adds the vote, stats, ballot, leaderboard, comparison, and
-// event endpoints documented in specs/tech-stack.md.
+// Routes (current set; see specs/tech-stack.md for the contract):
+//   GET    /api/health
+//   POST   /api/event
+//   POST   /api/vote
+//   GET    /api/stats?a=X&b=Y
+//   POST   /api/ballot
+//   GET    /api/ballot/:id
+//   GET    /api/leaderboard/:country
+//   GET    /api/comparison/:country
 
-export interface Env {
-  // Bound in wrangler.toml [[d1_databases]]. Uncomment in Phase 2.
-  // DB: D1Database;
-  // KV: KVNamespace;
-  // TURNSTILE_SECRET: string;
-  // DAILY_SALT: string;
-}
-
-const ALLOWED_ORIGINS = new Set<string>([
-  'https://2028ballot.almaintel.com',
-  'https://hsalberti.github.io',
-  'http://localhost:8765',
-  'http://127.0.0.1:8765',
-]);
-
-function corsHeaders(origin: string | null): HeadersInit {
-  const allow = origin && ALLOWED_ORIGINS.has(origin) ? origin : '';
-  return {
-    'access-control-allow-origin': allow,
-    'access-control-allow-methods': 'GET, POST, OPTIONS',
-    'access-control-allow-headers': 'content-type',
-    'access-control-max-age': '86400',
-    vary: 'origin',
-  };
-}
-
-function json(body: unknown, status: number, origin: string | null): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      'content-type': 'application/json; charset=utf-8',
-      ...corsHeaders(origin),
-    },
-  });
-}
+import {
+  handleBallotGet,
+  handleBallotPost,
+  handleComparison,
+  handleEvent,
+  handleHealth,
+  handleLeaderboard,
+  handleStats,
+  handleVote,
+} from './handlers';
+import { Env, corsHeaders, methodNotAllowed, notFound } from './util';
 
 export default {
-  async fetch(request: Request, _env: Env, _ctx: ExecutionContext): Promise<Response> {
+  async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     const origin = request.headers.get('origin');
+    const method = request.method;
+    const path = url.pathname;
 
-    if (request.method === 'OPTIONS') {
+    if (method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: corsHeaders(origin) });
     }
 
-    if (url.pathname === '/api/health' && request.method === 'GET') {
-      // `request.cf.country` is provided by Cloudflare's edge; falls back
-      // to 'ZZ' when the lookup fails (very rare; localhost, some VPNs).
-      const country = (request as RequestWithCf).cf?.country ?? 'ZZ';
-      return json({ ok: true, country }, 200, origin);
+    // /api/health
+    if (path === '/api/health') {
+      if (method === 'GET') return handleHealth(request, env, origin);
+      return methodNotAllowed(origin, 'GET');
     }
 
-    if (url.pathname.startsWith('/api/')) {
-      return json({ error: 'not_found' }, 404, origin);
+    // /api/event
+    if (path === '/api/event') {
+      if (method === 'POST') return handleEvent(request, env, origin);
+      return methodNotAllowed(origin, 'POST');
     }
 
-    return json({ error: 'not_found' }, 404, origin);
+    // /api/vote
+    if (path === '/api/vote') {
+      if (method === 'POST') return handleVote(request, env, origin);
+      return methodNotAllowed(origin, 'POST');
+    }
+
+    // /api/stats
+    if (path === '/api/stats') {
+      if (method === 'GET') return handleStats(request, env, origin);
+      return methodNotAllowed(origin, 'GET');
+    }
+
+    // /api/ballot         (POST only)
+    if (path === '/api/ballot') {
+      if (method === 'POST') return handleBallotPost(request, env, origin);
+      return methodNotAllowed(origin, 'POST');
+    }
+
+    // /api/ballot/:id
+    const ballotMatch = /^\/api\/ballot\/([0-9a-z]{4,32})$/.exec(path);
+    if (ballotMatch) {
+      if (method === 'GET') return handleBallotGet(request, env, origin, ballotMatch[1]);
+      return methodNotAllowed(origin, 'GET');
+    }
+
+    // /api/leaderboard/:country
+    const leaderMatch = /^\/api\/leaderboard\/([A-Z]{2})$/.exec(path);
+    if (leaderMatch) {
+      if (method === 'GET') return handleLeaderboard(request, env, origin, leaderMatch[1]);
+      return methodNotAllowed(origin, 'GET');
+    }
+
+    // /api/comparison/:country
+    const compMatch = /^\/api\/comparison\/([A-Z]{2})$/.exec(path);
+    if (compMatch) {
+      if (method === 'GET') return handleComparison(request, env, origin, compMatch[1]);
+      return methodNotAllowed(origin, 'GET');
+    }
+
+    return notFound(origin);
   },
 };
-
-// Workers ships its CF properties on the request object via the `cf`
-// field; the typings live in @cloudflare/workers-types but we narrow
-// here so the rest of the file stays portable.
-interface RequestWithCf extends Request {
-  cf?: { country?: string };
-}

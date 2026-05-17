@@ -1,52 +1,46 @@
 # The 2028 Ballot — Cloudflare Worker config.
 #
-# Phase 1 ships /api/health only. Bindings for D1, KV, and secrets are
-# commented out below and get enabled progressively in later phases:
-#   Phase 1.5  →  no new bindings (engagement events use D1 from Phase 2)
-#   Phase 2    →  enable [[d1_databases]] DB
-#   Phase 3    →  same DB, more migrations
-#   Phase 5    →  enable [[kv_namespaces]] KV + Turnstile secret
+# Phase 1+ ships /api/health, /api/event, /api/vote, /api/stats,
+# /api/ballot, /api/leaderboard/:country, /api/comparison/:country.
+# Phase 5 layers Turnstile + KV rate-limiting on top.
 #
-# Before first deploy, set CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID
-# as repo secrets (used by .github/workflows/deploy.yml). `wrangler deploy`
-# locally picks them up from `wrangler login`.
+# Before first deploy: `wrangler login`, then
+# `wrangler d1 create ranked-choice-db` and paste the printed database_id
+# into the `database_id` field below.
 
 name = "ranked-choice-api"
 main = "src/index.ts"
 compatibility_date = "2026-05-17"
 compatibility_flags = ["nodejs_compat_v2"]
 
-# Set this once via `wrangler.toml` OR via the CLOUDFLARE_ACCOUNT_ID env
-# var. Leaving it as a placeholder so the file is safe to commit.
-# account_id = "TODO-your-cloudflare-account-id"
+# account_id is read from CLOUDFLARE_ACCOUNT_ID env var (set as a GH
+# Actions secret + locally via `wrangler login`).
+# account_id = "..."
 
-# When you have the custom domain wired, add a route here:
+# Once the custom domain is on Cloudflare DNS, attach a Worker route:
 # routes = [
-#   { pattern = "api.your-domain.example/*", zone_name = "your-domain.example" },
+#   { pattern = "api.2028ballot.almaintel.com/*", zone_name = "almaintel.com" },
 # ]
 
-# Observability — Workers tail logs come through `wrangler tail` until
-# Logpush is configured (Phase 6).
 [observability]
 enabled = true
 
-# ----- D1 (Phase 2) --------------------------------------------------
-# After running `wrangler d1 create ranked-choice-db`, paste the
-# database_id below and uncomment.
-#
-# [[d1_databases]]
-# binding       = "DB"
-# database_name = "ranked-choice-db"
-# database_id   = "TODO-from-wrangler-d1-create"
-# migrations_dir = "../migrations"
+# ----- D1 (Phase 1.5+/2+) --------------------------------------------
+# `wrangler dev` uses a local SQLite file under .wrangler/ until you
+# pair this binding to a real D1. Production needs:
+#   wrangler d1 create ranked-choice-db
+#   (paste the returned UUID into database_id below, uncomment, push)
+[[d1_databases]]
+binding        = "DB"
+database_name  = "ranked-choice-db"
+database_id    = "ranked-choice-db-local"
+migrations_dir = "../migrations"
 
 # ----- KV (Phase 5) --------------------------------------------------
 # Rate-limit storage; per-IP daily slots keyed by sha256(ip + DAILY_SALT).
-#
 # [[kv_namespaces]]
 # binding = "KV"
 # id      = "TODO-from-wrangler-kv-namespace-create"
 
 # ----- Secrets (Phase 5) ---------------------------------------------
-# Set via `wrangler secret put TURNSTILE_SECRET` and similar — do NOT
-# commit them.
+# Set via `wrangler secret put TURNSTILE_SECRET` and similar.
