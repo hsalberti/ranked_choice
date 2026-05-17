@@ -240,17 +240,16 @@ button {
 }
 
 .matchup {
+  /* Mobile-first: side-by-side narrow cards with the VS pill in the
+     middle column. Both candidates visible at once on a phone; the
+     hook moves behind the ⓘ flip so the front stays scannable.
+     Desktop bumps this up to a comfortable spread in the @media
+     (min-width: 760px) block below. */
   display: grid;
-  grid-template-columns: 1fr;
-  /* Mobile: 1fr auto 1fr so the two cards split the available viewport
-     height equally, with the VS pill in the middle. Both cards stay
-     visible without scrolling on a phone. Desktop overrides this below
-     to a side-by-side layout. */
-  grid-template-rows: minmax(0, 1fr) auto minmax(0, 1fr);
-  gap: 10px;
+  grid-template-columns: 1fr auto 1fr;
+  grid-template-rows: auto;
+  gap: 8px;
   align-items: stretch;
-  flex: 1;
-  min-height: 0;
   position: relative;
 }
 .matchup .vs {
@@ -274,21 +273,43 @@ button {
 }
 
 @media (min-width: 760px) {
-  /* Side-by-side cards on tablet+; reset the mobile row split. */
-  .matchup {
-    grid-template-columns: 1fr auto 1fr;
-    grid-template-rows: auto;
-    gap: 18px;
-  }
-  .matchup .vs { margin: 0; }
+  /* Tablet+: the mobile layout was already side-by-side, but bump the
+     gap up now that each card has a full column. */
+  .matchup { gap: 18px; }
 
-  /* Restore comfortable card sizing now that each card has a column
-     to itself instead of half the viewport height. */
+  /* Comfortable card sizing for the wider columns. */
   .card { min-height: 480px; }
   .card-face { padding: 22px 22px 18px; }
   .avatar { width: 96px; height: 96px; font-size: 30px; }
-  .card-name { font-size: 20px; margin: 16px 0 4px; }
-  .card-role { font-size: 13px; }
+  .card-name {
+    font-size: 20px;
+    margin: 16px 0 4px;
+    line-height: normal;
+    display: block;
+    overflow: visible;
+    -webkit-line-clamp: unset;
+    word-break: normal;
+  }
+  .card-role {
+    font-size: 13px;
+    margin: 0 0 2px;
+    line-height: normal;
+    display: block;
+    overflow: visible;
+    -webkit-line-clamp: unset;
+  }
+  .party-chip {
+    font-size: 11px;
+    padding: 4px 10px;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+  /* Bring back the long-form front content (hidden on phones). */
+  .card-face.front .card-hook,
+  .card-face.front .card-age,
+  .card-face.front .tap-more {
+    display: block;
+  }
   .card-age { font-size: 12px; margin-bottom: 14px; }
   .card-hook {
     font-size: 14.5px;
@@ -305,9 +326,10 @@ button {
 .card {
   position: relative;
   perspective: 1400px;
-  /* Mobile: no floor — the grid track sizes the card. Desktop bumps a
-     comfortable min-height in the breakpoints below. */
-  min-height: 0;
+  /* Mobile floor: tall enough for compact-portrait content (avatar +
+     name + role + chip + ⓘ). Desktop bumps this in the breakpoints
+     below where each card has a full column to itself. */
+  min-height: 280px;
   display: flex;
   flex-direction: column;
   cursor: pointer;
@@ -336,13 +358,21 @@ button {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  /* Tighter padding on mobile so the compressed-height card still
-     breathes; desktop restores the original 22/18 spacing. */
-  padding: 14px 16px 12px;
+  /* Narrow compact padding on mobile (~160px wide cards); desktop
+     restores 22/18 spacing in the @media (min-width: 760px) block. */
+  padding: 12px 10px 10px;
   overflow: hidden;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
   transition: box-shadow var(--transition), border-color var(--transition);
+}
+/* Mobile-only: hide long-form content on the front face. The full hook,
+   age, and tap-more hint live behind the ⓘ flip on phones; they reappear
+   on tablet/desktop where there's horizontal space for them. */
+.card-face.front .card-hook,
+.card-face.front .card-age,
+.card-face.front .tap-more {
+  display: none;
 }
 /* Mobile-only compaction so two cards fit one viewport. Selectors are
    intentionally bare so the existing @media (min-width: 900px) block's
@@ -495,16 +525,16 @@ button {
 .link-btn svg { width: 14px; height: 14px; flex-shrink: 0; }
 
 .avatar {
-  /* Mobile-first compact size; restored to 96px at ≥760px below
-     and bumped further at ≥900px in the desktop block. */
-  width: 64px;
-  height: 64px;
+  /* Mobile portrait size for the narrow side-by-side matchup card.
+     Restored to 96px at ≥760px below, then bumped further on desktop. */
+  width: 72px;
+  height: 72px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 22px;
+  font-size: 24px;
   color: #fff;
   letter-spacing: -0.02em;
   flex-shrink: 0;
@@ -531,16 +561,30 @@ button {
 }
 
 .card-name {
+  /* Compact for the narrow mobile card. Clamps to 2 lines so a long
+     name (e.g. "Alexandria Ocasio-Cortez") wraps cleanly without
+     blowing the height. Bumped at ≥760px. */
   margin: 8px 0 2px;
-  font-size: 17px;
+  font-size: 13.5px;
   font-weight: 600;
   letter-spacing: -0.02em;
+  line-height: 1.2;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
 }
 .card-role {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-muted);
-  margin: 0 0 2px;
+  margin: 0 0 6px;
   font-weight: 500;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .card-age {
   font-size: 11px;
@@ -608,14 +652,16 @@ button {
 .party-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 11px;
+  gap: 4px;
+  /* Compact for the narrow mobile card; ≥760px bumps this in the
+     existing desktop block. */
+  font-size: 9.5px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  padding: 4px 10px;
+  padding: 3px 8px;
   border-radius: 99px;
-  margin-bottom: 12px;
+  margin-bottom: 6px;
 }
 .party-chip.party-R { background: var(--rep-soft); color: var(--rep); }
 .party-chip.party-D { background: var(--dem-soft); color: var(--dem); }
