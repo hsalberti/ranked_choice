@@ -17,6 +17,7 @@ window.CANDIDATES = [
     name: 'Vivek Ramaswamy',
     party: 'R',
     role: 'Governor of Ohio',
+    born: '1985-08-09',
     resume: [
       'Governor of Ohio (2027–pres.)',
       'Co-lead, Department of Government Efficiency (2025)',
@@ -48,6 +49,7 @@ window.CANDIDATES = [
     name: 'Cory Booker',
     party: 'D',
     role: 'U.S. Senator from New Jersey',
+    born: '1969-04-27',
     resume: [
       'U.S. Senator from New Jersey (2013–pres.)',
       'Mayor of Newark (2006–2013)',
@@ -79,6 +81,7 @@ window.CANDIDATES = [
     name: 'Ron DeSantis',
     party: 'R',
     role: 'Governor of Florida',
+    born: '1978-09-14',
     resume: [
       'Governor of Florida (2019–pres.)',
       'U.S. Representative, FL-6 (2013–2018)',
@@ -110,6 +113,7 @@ window.CANDIDATES = [
     name: 'Pete Buttigieg',
     party: 'D',
     role: 'Former U.S. Secretary of Transportation',
+    born: '1982-01-19',
     resume: [
       'U.S. Secretary of Transportation (2021–2025)',
       'Mayor of South Bend, Indiana (2012–2020)',
@@ -141,6 +145,7 @@ window.CANDIDATES = [
     name: 'Tim Scott',
     party: 'R',
     role: 'U.S. Senator from South Carolina',
+    born: '1965-09-19',
     resume: [
       'U.S. Senator from South Carolina (2013–pres.)',
       'U.S. Representative, SC-1 (2011–2013)',
@@ -172,6 +177,7 @@ window.CANDIDATES = [
     name: 'Jon Ossoff',
     party: 'D',
     role: 'U.S. Senator from Georgia',
+    born: '1987-02-16',
     resume: [
       'U.S. Senator from Georgia (2021–pres.)',
       'Chair, Permanent Subcommittee on Investigations (2023–pres.)',
@@ -203,6 +209,7 @@ window.CANDIDATES = [
     name: 'Robert F. Kennedy Jr.',
     party: 'I',
     role: 'U.S. Secretary of Health & Human Services',
+    born: '1954-01-17',
     resume: [
       'U.S. Secretary of Health & Human Services (2025–pres.)',
       'Founder, Waterkeeper Alliance (1999–2024)',
@@ -234,6 +241,7 @@ window.CANDIDATES = [
     name: 'Mark Cuban',
     party: 'I',
     role: 'Entrepreneur and investor',
+    born: '1958-07-31',
     resume: [
       'Founder, Cost Plus Drugs (2022–pres.)',
       'Owner, Dallas Mavericks (2000–2023)',
@@ -265,6 +273,7 @@ window.CANDIDATES = [
     name: 'Tucker Carlson',
     party: 'R',
     role: 'Independent media commentator',
+    born: '1969-05-16',
     resume: [
       'Host, The Tucker Carlson Network (2023–pres.)',
       'Host, Tucker Carlson Tonight, Fox News (2016–2023)',
@@ -296,6 +305,7 @@ window.CANDIDATES = [
     name: 'Elise Stefanik',
     party: 'R',
     role: 'Governor of New York',
+    born: '1984-07-02',
     resume: [
       'Governor of New York (2027–pres.)',
       'Chair, House Republican Conference (2021–2025)',
@@ -327,6 +337,7 @@ window.CANDIDATES = [
     name: 'Nancy Mace',
     party: 'R',
     role: 'U.S. Representative from South Carolina',
+    born: '1977-12-04',
     resume: [
       'U.S. Representative, SC-1 (2021–pres.)',
       'South Carolina State Representative (2018–2020)',
@@ -358,6 +369,7 @@ window.CANDIDATES = [
     name: 'Alexandria Ocasio-Cortez',
     party: 'D',
     role: 'U.S. Representative from New York',
+    born: '1989-10-13',
     resume: [
       'U.S. Representative, NY-14 (2019–pres.)',
       'Sanders 2016 organizer (2016)',
@@ -389,6 +401,7 @@ window.CANDIDATES = [
     name: 'J.D. Vance',
     party: 'R',
     role: 'Vice President of the United States',
+    born: '1984-08-02',
     resume: [
       'Vice President of the United States (2025–pres.)',
       'U.S. Senator from Ohio (2023–2025)',
@@ -420,6 +433,7 @@ window.CANDIDATES = [
     name: 'Gavin Newsom',
     party: 'D',
     role: 'Governor of California',
+    born: '1967-10-10',
     resume: [
       'Governor of California (2019–pres.)',
       'Lt. Governor of California (2011–2019)',
@@ -451,6 +465,7 @@ window.CANDIDATES = [
     name: 'Matt Gaetz',
     party: 'R',
     role: 'Conservative commentator',
+    born: '1982-05-07',
     resume: [
       'Host, nightly OAN program (2025–pres.)',
       'AG nominee, Trump administration (Nov 2024, withdrawn)',
@@ -482,6 +497,7 @@ window.CANDIDATES = [
     name: 'James Talarico',
     party: 'D',
     role: 'Texas State Representative',
+    born: '1989-09-24',
     resume: [
       'Texas State Representative, Dist. 50 (2019–pres.)',
       'Seminary student, Austin Presbyterian (2023–pres.)',
@@ -513,6 +529,7 @@ window.CANDIDATES = [
     name: 'Marco Rubio',
     party: 'R',
     role: 'U.S. Secretary of State',
+    born: '1971-05-28',
     resume: [
       'U.S. Secretary of State (2025–pres.)',
       'U.S. Senator from Florida (2011–2025)',
@@ -544,6 +561,7 @@ window.CANDIDATES = [
     name: 'Kamala Harris',
     party: 'D',
     role: 'Former Vice President',
+    born: '1964-10-20',
     resume: [
       'Vice President of the United States (2021–2025)',
       'U.S. Senator from California (2017–2021)',
@@ -575,6 +593,7 @@ window.CANDIDATES = [
     name: 'Pete Hegseth',
     party: 'R',
     role: 'U.S. Secretary of Defense',
+    born: '1980-06-06',
     resume: [
       'U.S. Secretary of Defense (2025–pres.)',
       'Co-host, Fox & Friends Weekend (2014–2024)',
@@ -606,6 +625,7 @@ window.CANDIDATES = [
     name: 'Wes Moore',
     party: 'D',
     role: 'Governor of Maryland',
+    born: '1978-10-15',
     resume: [
       'Governor of Maryland (2023–pres.)',
       'CEO, Robin Hood Foundation (2017–2022)',
@@ -637,6 +657,7 @@ window.CANDIDATES = [
     name: 'Ted Cruz',
     party: 'R',
     role: 'U.S. Senator from Texas',
+    born: '1970-12-22',
     resume: [
       'U.S. Senator from Texas (2013–pres.)',
       'Texas Solicitor General (2003–2008)',
@@ -668,6 +689,7 @@ window.CANDIDATES = [
     name: 'Josh Shapiro',
     party: 'D',
     role: 'Governor of Pennsylvania',
+    born: '1973-06-20',
     resume: [
       'Governor of Pennsylvania (2023–pres.)',
       'Pennsylvania Attorney General (2017–2023)',
@@ -699,6 +721,7 @@ window.CANDIDATES = [
     name: 'Marjorie Taylor Greene',
     party: 'R',
     role: 'U.S. Representative from Georgia',
+    born: '1974-05-27',
     resume: [
       'U.S. Representative, GA-14 (2021–pres.)',
       'House Freedom Caucus member (2021–pres.)',
@@ -730,6 +753,7 @@ window.CANDIDATES = [
     name: 'Amy Klobuchar',
     party: 'D',
     role: 'U.S. Senator from Minnesota',
+    born: '1960-05-25',
     resume: [
       'U.S. Senator from Minnesota (2007–pres.)',
       '2026 Minnesota gubernatorial candidate',
@@ -761,6 +785,7 @@ window.CANDIDATES = [
     name: 'Steve Bannon',
     party: 'R',
     role: 'Host of War Room',
+    born: '1953-11-27',
     resume: [
       'Host, War Room podcast (2019–pres.)',
       'White House Chief Strategist (Jan–Aug 2017)',
@@ -798,6 +823,7 @@ window.EXTENDED_CANDIDATES = [
     name: 'J.B. Pritzker',
     party: 'D',
     role: 'Governor of Illinois',
+    born: '1965-01-19',
     resume: [
       'Governor of Illinois (2019–pres.)',
       'Founder, Pritzker Group venture capital (1996–2018)',
@@ -829,6 +855,7 @@ window.EXTENDED_CANDIDATES = [
     name: 'Sarah Huckabee Sanders',
     party: 'R',
     role: 'Governor of Arkansas',
+    born: '1982-08-13',
     resume: [
       'Governor of Arkansas (2023–pres.)',
       'White House Press Secretary (2017–2019)',
@@ -860,6 +887,7 @@ window.EXTENDED_CANDIDATES = [
     name: 'Greg Abbott',
     party: 'R',
     role: 'Governor of Texas',
+    born: '1957-11-13',
     resume: [
       'Governor of Texas (2015–pres.)',
       'Texas Attorney General (2003–2015)',
@@ -891,6 +919,7 @@ window.EXTENDED_CANDIDATES = [
     name: 'Brian Kemp',
     party: 'R',
     role: 'Governor of Georgia',
+    born: '1963-11-02',
     resume: [
       'Governor of Georgia (2019–pres.)',
       'Georgia Secretary of State (2010–2018)',
@@ -922,6 +951,7 @@ window.EXTENDED_CANDIDATES = [
     name: 'Glenn Youngkin',
     party: 'R',
     role: 'Former Governor of Virginia',
+    born: '1966-12-09',
     resume: [
       'Governor of Virginia (2022–2026)',
       'Co-CEO, The Carlyle Group (2018–2020)',
@@ -953,6 +983,7 @@ window.EXTENDED_CANDIDATES = [
     name: 'Doug Burgum',
     party: 'R',
     role: 'U.S. Secretary of the Interior',
+    born: '1956-08-01',
     resume: [
       'U.S. Secretary of the Interior (2025–pres.)',
       'Governor of North Dakota (2016–2024)',
@@ -984,6 +1015,7 @@ window.EXTENDED_CANDIDATES = [
     name: 'Tulsi Gabbard',
     party: 'R',
     role: 'Director of National Intelligence',
+    born: '1981-04-12',
     resume: [
       'Director of National Intelligence (2025–pres.)',
       'U.S. Representative, HI-2 (2013–2021)',
@@ -1015,6 +1047,7 @@ window.EXTENDED_CANDIDATES = [
     name: 'Rand Paul',
     party: 'R',
     role: 'U.S. Senator from Kentucky',
+    born: '1963-01-07',
     resume: [
       'U.S. Senator from Kentucky (2011–pres.)',
       'Chair, Senate Homeland Security Committee (2025–pres.)',
@@ -1046,6 +1079,7 @@ window.EXTENDED_CANDIDATES = [
     name: 'Mark Kelly',
     party: 'D',
     role: 'U.S. Senator from Arizona',
+    born: '1964-02-21',
     resume: [
       'U.S. Senator from Arizona (2020–pres.)',
       'NASA astronaut, four shuttle missions (1996–2011)',
@@ -1077,6 +1111,7 @@ window.EXTENDED_CANDIDATES = [
     name: 'Chris Van Hollen',
     party: 'D',
     role: 'U.S. Senator from Maryland',
+    born: '1959-01-10',
     resume: [
       'U.S. Senator from Maryland (2017–pres.)',
       'U.S. Representative, MD-8 (2003–2017)',
@@ -1108,6 +1143,7 @@ window.EXTENDED_CANDIDATES = [
     name: 'Stephen A. Smith',
     party: 'D',
     role: 'ESPN host and commentator',
+    born: '1967-10-14',
     resume: [
       'Host, ESPN First Take (2012–pres.)',
       'Host, The Stephen A. Smith Show podcast (2018–pres.)',
@@ -1139,6 +1175,7 @@ window.EXTENDED_CANDIDATES = [
     name: 'Donald Trump Jr.',
     party: 'R',
     role: 'Executive Vice President, The Trump Organization',
+    born: '1977-12-31',
     resume: [
       'Host, Triggered podcast (2022–pres.)',
       'Executive VP, The Trump Organization (2001–pres.)',
@@ -1170,6 +1207,7 @@ window.EXTENDED_CANDIDATES = [
     name: 'Rahm Emanuel',
     party: 'D',
     role: 'Former U.S. Ambassador to Japan',
+    born: '1959-11-29',
     resume: [
       'U.S. Ambassador to Japan (2022–2025)',
       'Mayor of Chicago (2011–2019)',
@@ -1201,6 +1239,7 @@ window.EXTENDED_CANDIDATES = [
     name: 'Gina Raimondo',
     party: 'D',
     role: 'Former U.S. Secretary of Commerce',
+    born: '1971-05-17',
     resume: [
       'U.S. Secretary of Commerce (2021–2025)',
       'Governor of Rhode Island (2015–2021)',
@@ -1232,6 +1271,7 @@ window.EXTENDED_CANDIDATES = [
     name: 'Mitch Landrieu',
     party: 'D',
     role: 'Former White House Senior Adviser for Infrastructure',
+    born: '1960-08-16',
     resume: [
       'Senior Adviser, White House Infrastructure (2021–2024)',
       'Mayor of New Orleans (2010–2018)',

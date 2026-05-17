@@ -486,8 +486,15 @@ button {
 .card-role {
   font-size: 13px;
   color: var(--text-muted);
+  margin: 0 0 2px;
+  font-weight: 500;
+}
+.card-age {
+  font-size: 12px;
+  color: var(--text-muted);
   margin: 0 0 14px;
   font-weight: 500;
+  opacity: 0.85;
 }
 .card-hook {
   font-size: 14.5px;
@@ -995,7 +1002,8 @@ button {
 
   .avatar { width: 180px; height: 180px; font-size: 52px; box-shadow: inset 0 0 0 5px rgba(255,255,255,0.4); }
   .card-name { font-size: 27px; margin: 24px 0 6px; letter-spacing: -0.025em; }
-  .card-role { font-size: 14px; margin-bottom: 18px; }
+  .card-role { font-size: 14px; margin-bottom: 3px; }
+  .card-age { font-size: 12.5px; margin-bottom: 18px; }
   .party-chip { font-size: 11.5px; padding: 5px 12px; margin-bottom: 14px; }
   .card-hook { font-size: 16.5px; line-height: 1.55; max-width: 34ch; margin-bottom: 18px; }
   .tap-more { font-size: 11.5px; padding-top: 12px; }
@@ -1053,6 +1061,7 @@ button {
   .avatar { width: 220px; height: 220px; font-size: 62px; }
   .card-name { font-size: 30px; margin-top: 26px; }
   .card-role { font-size: 14.5px; }
+  .card-age { font-size: 13px; }
   .card-hook { font-size: 17px; max-width: 36ch; }
 
   /* Top podium avatar matches front-card scale */
