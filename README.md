@@ -144,6 +144,28 @@ wrangler secret put TURNSTILE_SECRET
 wrangler secret put DAILY_SALT
 ```
 
+### Smoke tests
+
+Two scripts cover the backend:
+
+```bash
+# 37 correctness assertions: CORS, validation, pair-key canonicalization,
+# Borda math, admin auth, routing. Run after deploy:
+./scripts/test_api.sh                                  # local wrangler dev
+./scripts/test_api.sh https://your-worker.workers.dev  # production
+
+# To exercise admin routes:
+ADMIN_TOKEN="$(cat api/.dev.vars | grep ADMIN_TOKEN | cut -d= -f2)" \
+  ./scripts/test_api.sh http://127.0.0.1:8787
+```
+
+```bash
+# Proves real aggregation: wipes the local D1, posts 100 votes
+# (70 ramaswamy / 30 vance), reads /api/stats, asserts 70/30 split.
+./scripts/test_multiuser.sh                            # local — wipes D1 first
+./scripts/test_multiuser.sh https://your-worker.dev    # against prod, does NOT wipe
+```
+
 ### Quick admin queries (D1)
 
 ```bash
