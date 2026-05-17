@@ -690,7 +690,7 @@
       overlay.classList.remove('show');
       overlayContext = null;
       setTimeout(after, 180);
-    }, 1450);
+    }, 1700);
 
     // Best-effort: replace the seeded estimate with real backend stats
     // if they arrive while the overlay is still on screen. Tier 1 only
