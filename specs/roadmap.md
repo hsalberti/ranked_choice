@@ -317,14 +317,75 @@ pair line on Tier 1/2/3 votes; sound plays once per vote; mute toggle
 persists across reloads; offline mode still renders the visual reveal
 without data lines.
 
+## v4 — Login & saved preferences [proposed — 2026-05-18]
+
+Goal: give returning visitors a way to resume their ballot across devices
+and across days, so the Rank More / Keep Calibrating CTAs (shipped local-
+only in the same week) can persist Elo state instead of losing it on every
+reload.
+
+Status today: anonymous-only. Each browser keeps Glicko-2 ratings in
+memory; closing the tab discards them. The post-results screen offers
+**Rank More Candidates** (advance to the next tier) and **Keep Calibrating
+Preferences** (extend the current tier's vote cap and continue sharpening
+Elo), both of which currently operate purely on in-memory state. A signed-
+in flow would unlock returning sessions, cross-device sync, and a
+"resume where you left off" entry point.
+
+**Open tradeoffs to resolve before implementing:**
+
+- **Auth provider.** Magic-link email (own infra, low friction, slow
+  first-hop), OAuth via GitHub/Google/Apple (fast, identifies real people,
+  third-party dependency), Cloudflare Access (clean integration with the
+  rest of the stack, requires zone migration to CF DNS — see Phase 1
+  follow-up), Passkeys (modern, but split UX on older devices). No
+  obvious default; depends on whether the audience is technical or
+  general-public.
+- **Anonymity vs persistence.** The current README and roadmap
+  principle is "Anonymous stays the default." Login must be *opt-in* and
+  never gate any existing functionality. Decide whether anonymous local
+  ballots get migrated into the signed-in account on first login, or
+  treated as separate sessions.
+- **Server-side state shape.** Today `candidate_country_elo` is a
+  pool-wide aggregate; per-user state needs a new D1 table (`user_state`?
+  `user_ratings`?) keyed by `(user_id, candidate_id, tier)` storing
+  Glicko-2 `rating / rd / sigma / appearances`. Watch the row-count
+  blow-up: 40 candidates × every signed-in user. Consider blob-JSON-per-
+  user instead of one row per (user × candidate).
+- **Multi-device merge semantics.** If a user votes on phone, then opens
+  the app on laptop, do we replay events in order, take the more recent
+  state, or surface a "we see two diverged sessions, pick one" UX? Cheap
+  v1 = last-write-wins on a single state blob.
+- **Migration of anonymous ballots.** A user who voted anonymously, then
+  signs up — do we import their session, or start fresh? Importing is
+  friendly but creates a vector for ballot stuffing (sign up, anon-vote
+  10×, sign up again). Decide before shipping the login button.
+- **What the two CTAs do once persistence exists.** Rank More across
+  devices clearly works as additive expansion. Keep Calibrating across
+  devices is murkier — should the cap reset on each new session, or carry
+  forward forever? If forever, the CI early-exit eventually fires and
+  the button becomes a no-op; need new UX copy for that state.
+
+**Likely deliverables (when picked up):**
+
+- Login surface (button in the topbar; modal sheet on mobile).
+- `user_state` D1 table + `GET /api/me/state` + `POST /api/me/vote`
+  endpoints.
+- Authenticated session cookie scoped to the API origin (same-site
+  considerations given the Pages+Workers split).
+- Rank More / Keep Calibrating wired to persist server-side when signed
+  in, fall back to local-only when anonymous.
+- Returning-visitor entry on the start screen: "Welcome back —
+  N candidates ranked. Resume?"
+
 ## Phase 7 — Beyond MVP
 
 Picked up only when there's demand signal from real usage.
 
 - **Time windowing** — toggle aggregates between "this week" and "all
   time"; needs an extra date-bucket dimension in `pair_aggregates`.
-- **Optional sign-in** — Google/Apple via Cloudflare Access or a
-  third-party identity provider, only to save ballots cross-device.
+- **Optional sign-in** — *promoted into its own roadmap item; see "v4 —
+  Login & saved preferences" above.*
 - **Party-of-voter filter** — opt-in self-report, sliced into
   aggregates as a third dimension after country.
 - **Embed widget** — `<script src=…>` that drops a one-matchup card

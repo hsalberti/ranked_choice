@@ -889,7 +889,7 @@ button {
   flex-wrap: wrap;
 }
 
-/* Keep-voting CTA (tier-progression on results screen) */
+/* Post-results CTAs: Rank More Candidates + Keep Calibrating Preferences */
 .keep-ranking {
   margin: 20px auto 4px;
   text-align: center;
@@ -897,10 +897,14 @@ button {
   background: var(--surface-2);
   border-radius: var(--radius);
   border: 1px dashed var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
 }
 .keep-ranking button {
   width: auto;
-  min-width: 200px;
+  min-width: 220px;
 }
 
 /* Footer */

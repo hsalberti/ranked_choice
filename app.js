@@ -138,6 +138,12 @@
   let currentMatchup = null;  // { a, b } selected by pickNextMatchup
   let voteHistory = [];       // for undo within a tier
   let tierCompleted = { 1: false, 2: false, 3: false };
+  let skippedKeys = new Set();// pair keys skipped this tier; resets in startTier
+  let calibrationBonus = 0;   // extra cap from "Keep Calibrating Preferences"
+
+  function pairKey(idA, idB) {
+    return idA < idB ? `${idA}:${idB}` : `${idB}:${idA}`;
+  }
 
   /* ---------- helpers ---------- */
   function initials(name) {
@@ -279,26 +285,33 @@
 
   function pickNextMatchup() {
     const pool = TIER[activeTier];
-    // Tier 1, vote 1: fixed opener. DYNAMIC_OPENER is a stub for a
-    // later phase (top-2-by-global-ELO); off for now.
+    // Tier 1, vote 1: fixed opener (unless the user already skipped it).
     if (activeTier === 1 && voteHistory.length === 0 && !DYNAMIC_OPENER) {
-      return orientMatchup(byIdAll.vance, byIdAll.newsom);
+      if (!skippedKeys.has(pairKey('vance', 'newsom'))) {
+        return orientMatchup(byIdAll.vance, byIdAll.newsom);
+      }
     }
-    // Tier 1, vote 2: hand-picked same-party rival to the R1 winner.
-    // R2_RIVAL only contains entries for fixed-opener winners; any
-    // other R1 winner falls through to adaptive selection.
+    // Tier 1, vote 2: hand-picked same-party rival to the R1 winner (unless skipped).
     if (activeTier === 1 && voteHistory.length === 1) {
-      const rivalId = R2_RIVAL[voteHistory[0].pickedId];
-      if (rivalId) {
-        return orientMatchup(byIdAll[voteHistory[0].pickedId], byIdAll[rivalId]);
+      const winnerId = voteHistory[0].pickedId;
+      const rivalId = R2_RIVAL[winnerId];
+      if (rivalId && !skippedKeys.has(pairKey(winnerId, rivalId))) {
+        return orientMatchup(byIdAll[winnerId], byIdAll[rivalId]);
       }
     }
     // Adaptive: 70% close-rated pair, 30% random — respecting coverage floor.
-    const pairs = allowedPairs(pool);
+    let pairs = allowedPairs(pool);
     if (!pairs.length) {
       // Pool too small / pathological — pair the two highest-RD candidates.
       const sorted = pool.slice().sort((a, b) => rd[b.id] - rd[a.id]);
       return orientMatchup(sorted[0], sorted[1] || sorted[0]);
+    }
+    // Don't re-show a pair the user already skipped this tier. If every
+    // candidate pair has been skipped, signal end-of-tier (caller handles).
+    if (skippedKeys.size) {
+      const filtered = pairs.filter(p => !skippedKeys.has(pairKey(p[0].id, p[1].id)));
+      if (!filtered.length) return null;
+      pairs = filtered;
     }
     const close = Math.random() < ADAPTIVE_P_CLOSE;
     const pick = close ? pickClosestRated(pairs) : pairs[Math.floor(Math.random() * pairs.length)];
@@ -330,7 +343,11 @@
    */
   function tierShouldStop() {
     const limits = TIER_LIMITS[activeTier];
-    if (votesThisTier >= limits.cap) return true;
+    const effectiveCap = limits.cap + calibrationBonus;
+    if (votesThisTier >= effectiveCap) return true;
+    // Calibration mode: the user explicitly asked for more votes — only
+    // the cap stops us, the CI early-exit is bypassed.
+    if (calibrationBonus > 0) return false;
     if (votesThisTier < limits.floor) return false;
     const sorted = TIER[activeTier].slice().sort((a, b) => ratings[b.id] - ratings[a.id]);
     const top = sorted.slice(0, limits.topN);
@@ -528,7 +545,9 @@
 
   function renderMatchup() {
     if (tierShouldStop()) return endOfTier();
-    currentMatchup = pickNextMatchup();
+    const next = pickNextMatchup();
+    if (!next) return endOfTier(); // every remaining pair skipped this tier
+    currentMatchup = next;
     renderCard('a', currentMatchup.a);
     renderCard('b', currentMatchup.b);
     renderProgress();
@@ -601,6 +620,10 @@
     if (advancing) return;
     // Skip: drop the current matchup without applying a Glicko update,
     // and ask the engine for a different one. Doesn't count toward votesThisTier.
+    // Remember the pair so pickNextMatchup() doesn't immediately hand it back.
+    if (currentMatchup) {
+      skippedKeys.add(pairKey(currentMatchup.a.id, currentMatchup.b.id));
+    }
     renderMatchup();
     renderBackBtn();
   }
@@ -612,7 +635,15 @@
       clearRevealState();
       advancing = false;
     }
-    if (!voteHistory.length) return;
+    if (!voteHistory.length) {
+      // The user entered this voting session from the results screen
+      // (Rank More / Keep Calibrating). Back returns them to results.
+      if (activeTier > 1 || tierCompleted[1]) {
+        show('results');
+        showResults();
+      }
+      return;
+    }
     const h = voteHistory.pop();
     ratings[h.pickedId] = h.prev.pRating;
     rd[h.pickedId]      = h.prev.pRd;
@@ -637,7 +668,11 @@
   function renderBackBtn() {
     const btn = $('#back-btn');
     if (!btn) return;
-    btn.hidden = voteHistory.length === 0;
+    // Always offer Back during additional voting (tier 2+, or calibration of
+    // a completed tier 1) so the user can return to results without history.
+    // During the first run of tier 1, hide until there's at least one vote.
+    const additionalVoting = activeTier > 1 || tierCompleted[1];
+    btn.hidden = voteHistory.length === 0 && !additionalVoting;
   }
 
   /* ---------- in-card reveal ----------
@@ -851,30 +886,42 @@
     badge.textContent = `Voting from ${flagOf(country)} ${country}`;
   }
 
-  /* ---------- tier-progression CTA ----------
-   * After Tier 1 → "Keep voting · N more" CTA (Tier 2 pool).
-   * After Tier 2 → "Go deeper · N more" CTA (Tier 3 pool).
-   * After Tier 3 → no CTA.
+  /* ---------- post-results CTAs ----------
+   * Two options offered to the visitor once their top-5 is on screen:
+   *   - Rank More Candidates → enter the next tier (broader roster).
+   *   - Keep Calibrating Preferences → stay in the current tier and
+   *     extend its vote cap for sharper Elo separation.
    */
+  const CALIBRATION_BONUS_STEP = 6;
   function renderKeepRanking() {
     const wrap = $('#keep-ranking');
     if (!wrap) return;
-    const btn = $('#keep-ranking-btn');
-    if (!btn) { wrap.hidden = true; return; }
-    let nextTier = 0, count = 0, label = '';
+    const rankMoreBtn = $('#rank-more-btn');
+    const calibBtn = $('#keep-calibrating-btn');
+
+    let nextTier = 0, count = 0, rankMoreLabel = '';
     if (!tierCompleted[2] && TIER[2].length > 0) {
       nextTier = 2; count = TIER[2].length;
-      label = `Keep voting · ${count} more ↓`;
+      rankMoreLabel = `Rank More Candidates · ${count} more ↓`;
     } else if (!tierCompleted[3] && TIER[3].length > 0) {
       nextTier = 3; count = TIER[3].length;
-      label = `Go deeper · ${count} more ↓`;
-    } else {
-      wrap.hidden = true;
-      return;
+      rankMoreLabel = `Rank More Candidates · ${count} deeper ↓`;
     }
-    wrap.hidden = false;
-    btn.textContent = label;
-    btn.dataset.nextTier = String(nextTier);
+    if (rankMoreBtn) {
+      if (rankMoreLabel) {
+        rankMoreBtn.textContent = rankMoreLabel;
+        rankMoreBtn.dataset.nextTier = String(nextTier);
+        rankMoreBtn.hidden = false;
+      } else {
+        rankMoreBtn.hidden = true;
+      }
+    }
+    if (calibBtn) {
+      // Always offer calibration after the first ballot has been cast.
+      calibBtn.textContent = `Keep Calibrating Preferences · ${CALIBRATION_BONUS_STEP} more`;
+      calibBtn.hidden = totalVoteCount === 0;
+    }
+    wrap.hidden = !!(rankMoreBtn && rankMoreBtn.hidden) && !!(calibBtn && calibBtn.hidden);
   }
 
   function startTier(tier) {
@@ -884,6 +931,18 @@
     votesThisTier = 0;
     currentMatchup = null;
     voteHistory = [];
+    skippedKeys = new Set();
+    calibrationBonus = 0;
+    show('vote');
+    renderMatchup();
+    renderBackBtn();
+    clearRevealState();
+  }
+
+  function keepCalibrating() {
+    // Extend the current tier's effective cap and resume voting on the same
+    // pool. voteHistory and Elo state are intentionally preserved.
+    calibrationBonus += CALIBRATION_BONUS_STEP;
     show('vote');
     renderMatchup();
     renderBackBtn();
@@ -1645,11 +1704,15 @@
       paint();
     });
   })();
-  // Tier-progression CTA on the results screen.
+  // Post-results CTAs.
   document.addEventListener('click', (e) => {
-    if (e.target && e.target.id === 'keep-ranking-btn') {
-      const next = parseInt(e.target.dataset.nextTier || '0', 10);
+    const t = e.target;
+    if (!t) return;
+    if (t.id === 'rank-more-btn') {
+      const next = parseInt(t.dataset.nextTier || '0', 10);
       if (next === 2 || next === 3) startTier(next);
+    } else if (t.id === 'keep-calibrating-btn') {
+      keepCalibrating();
     }
   });
   function wireCard(slot) {
