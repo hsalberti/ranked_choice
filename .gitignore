@@ -169,3 +169,7 @@ cython_debug/
 #.idea/
 # Per-script npm deps (e.g. headless-Chrome harness uses `ws`).
 scripts/node_modules/
+
+.dev.vars*
+!.dev.vars.example
+!.env.example
